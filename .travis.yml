@@ -10,8 +10,7 @@ matrix:
         # prepare qemu
         - docker run --rm --privileged multiarch/qemu-user-static:register --reset
         # build image
-        - docker build -t $DOCKER_USERNAME/mqtt .
-        - docker images --format
+        - docker build -t $DOCKER_USERNAME/mqtt-armhf .
         # test image
         #- docker run mqtt mosquitto --version
         # push image
@@ -20,7 +19,7 @@ matrix:
             echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
             #TAG=$(grep "ENV MYSQL_VERSION" Dockerfile | awk 'NF>1{print $NF}')
             TAG='latest'
-            docker tag $DOCKER_USERNAME/mqtt $DOCKER_USERNAME/mqtt:$TAG
-            docker push $DOCKER_USERNAME/mqtt:$TAG
-            docker push $DOCKER_USERNAME/mqtt
+            docker tag $DOCKER_USERNAME/mqtt-armhf $DOCKER_USERNAME/mqtt-armhf:$TAG
+            docker push $DOCKER_USERNAME/mqtt-armhf:$TAG
+            docker push $DOCKER_USERNAME/mqtt-armhf
           fi
