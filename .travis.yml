@@ -23,3 +23,6 @@ matrix:
             docker push $DOCKER_USERNAME/mqtt-armhf:$TAG
             docker push $DOCKER_USERNAME/mqtt-armhf
           fi
+notifications:
+  slack:
+    on_success: always
