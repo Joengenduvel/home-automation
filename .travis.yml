@@ -1,28 +1,23 @@
 matrix:
   include:
-    - sudo: required
-      services:
-        - docker
-      language: bash
-      before_script:
-        - cd docker/mqtt
-      script:
-        # prepare qemu
-        - docker run --rm --privileged multiarch/qemu-user-static:register --reset
-        # build image
-        - docker build -t $DOCKER_USERNAME/mqtt-armhf .
-        # test image
-        #- docker run mqtt mosquitto --version
-        # push image
-        - >
-          if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-            #TAG=$(grep "ENV MYSQL_VERSION" Dockerfile | awk 'NF>1{print $NF}')
-            TAG='latest'
-            docker tag $DOCKER_USERNAME/mqtt-armhf $DOCKER_USERNAME/mqtt-armhf:$TAG
-            docker push $DOCKER_USERNAME/mqtt-armhf:$TAG
-            docker push $DOCKER_USERNAME/mqtt-armhf
-          fi
+  - sudo: required
+    services:
+    - docker
+    language: bash
+    before_script:
+    - cd docker/mqtt
+    script:
+    - docker run --rm --privileged multiarch/qemu-user-static:register --reset
+    - docker build -t $DOCKER_USERNAME/mqtt-armhf .
+    - |
+      if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
+        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+        #TAG=$(grep "ENV MYSQL_VERSION" Dockerfile | awk 'NF>1{print $NF}')
+        TAG='latest'
+        docker tag $DOCKER_USERNAME/mqtt-armhf $DOCKER_USERNAME/mqtt-armhf:$TAG
+        docker push $DOCKER_USERNAME/mqtt-armhf:$TAG
+        docker push $DOCKER_USERNAME/mqtt-armhf
+      fi
 notifications:
   slack:
-    on_success: always
+    secure: OS2yvAb7C8b2TnAw0jofHPuAIBaCn9HB1lRUv0KDGPI6zp9sX09UfD43VVy991Ze/B+VShKwdibGSzW1O935vDkgKaT+E/ap+EML49xjEpEv6YDlYoxsFbciZTp+Ivk9g224t+JDihCrtTp9BL+Loe/LeDN/oBd5Tk7fw6bOWXN3UqnlwqoJBSxX/Hre5JetpDgj/9QRoLQPK60iYs7Lwo3+iyhLNFsEJeCO14wMB8puuLT78UqPPitRULd8YjfxuDGRjo3C8Jv3wd/KjjoicQsNo8xXw9a81Fm+nbODt2l3EMcIx9w88ZU6PqP3Bkvz5RuLsREqzZa0xHJH7yU1h4qO39VtBkAVOQvJLiR31Pb1+DkgdRiiNQi+6eQTlQOMubARBwbUro9sWY4B0RUJyEKqhMSqqvF1YIJ+Aht/d5UafvJ6BGAVJ1mthvolV3lOwULBECpMC4soPb7eOCiNFhYJDygJDP0nJVZQwhklJeCCeFoq4dBHZi+eGUg+yyc11dYNR4dJVFl1/7yF7TsFLNf37dB1DMN/lNn9Ti4+G8Xq4ILmDF0uLxmxRw9P7ouztD+OGwgqqmnVhL2MAXjEQaOFYpqalyBEv2qHj0efDnT/te8D/jLfp0iB/LUTzOFjDingqdFn6U+RtCOXfL9ksC08jp//DYnB1UNrzTTQIDk=
