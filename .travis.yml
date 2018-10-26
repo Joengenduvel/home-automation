@@ -10,16 +10,16 @@ matrix:
         # prepare qemu
         - docker run --rm --privileged multiarch/qemu-user-static:register --reset
         # build image
-        - docker build -t joengenduvel/mqtt .
+        - docker build -t mqtt .
         # test image
-        #- docker run joengenduvel/mqtt mosquitto --version
+        #- docker run mqtt mosquitto --version
         # push image
         - >
           if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
             echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
             #TAG=$(grep "ENV MYSQL_VERSION" Dockerfile | awk 'NF>1{print $NF}')
             TAG='latest'
-            docker tag joengenduvel/mqtt joengenduvel/mqtt:$TAG
-            docker push joengenduvel/mqtt:$TAG
-            docker push joengenduvel/mqtt
+            docker tag jdhome/mqtt jdhome/mqtt:$TAG
+            docker push jdhome/mqtt:$TAG
+            docker push jdhome/mqtt
           fi
