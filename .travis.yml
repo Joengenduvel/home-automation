@@ -16,8 +16,9 @@ matrix:
         # push image
         - >
           if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-            docker login -u="$DOCKER_USER" -p="$DOCKER_PASS"
-            TAG=$(grep "ENV MYSQL_VERSION" Dockerfile | awk 'NF>1{print $NF}')
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+            #TAG=$(grep "ENV MYSQL_VERSION" Dockerfile | awk 'NF>1{print $NF}')
+            TAG='latest'
             docker tag joengenduvel/mqtt joengenduvel/mqtt:$TAG
             docker push joengenduvel/mqtt:$TAG
             docker push joengenduvel/mqtt
