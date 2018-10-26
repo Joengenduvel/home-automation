@@ -5,4 +5,4 @@ ADD mosquitto.conf /etc/mosquitto/
 
 EXPOSE 1883 9001
 
-ENTRYPOINT ["mosquitto"]
+ENTRYPOINT ["mosquitto","-c","/etc/mosquitto/mosquitto.conf"]
