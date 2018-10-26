@@ -11,6 +11,7 @@ matrix:
         - docker run --rm --privileged multiarch/qemu-user-static:register --reset
         # build image
         - docker build -t $DOCKER_USERNAME/mqtt .
+        - docker images --format
         # test image
         #- docker run mqtt mosquitto --version
         # push image
