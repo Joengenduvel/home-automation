@@ -32,7 +32,7 @@ matrix:
       - arduino --pref "boardsmanager.additional.urls=http://arduino.esp8266.com/stable/package_esp8266com_index.json,https://dl.espressif.com/dl/package_esp32_index.json" --save-prefs
       - arduino --install-boards esp8266:esp8266
       - arduino --install-library "Adafruit GFX Library"
-      - arduino --install-library "Adafruit SSD1306 Wemos OLED"
+      - arduino --install-library "Adafruit SSD1306 Wemos Mini OLED"
       - arduino --install-library "Adafruit Unified Sensor"
       - arduino --install-library "DHT sensor library"
     script:
