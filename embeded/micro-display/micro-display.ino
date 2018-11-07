@@ -1,12 +1,15 @@
+
+
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
 #include <ESP8266WiFi.h>
-#include <MQTT.h>
+#include <PubSubClient.h>
 
-#include "DHT.h"
+#include <DHT.h>
+#include <DHT_U.h>
 
 #define OLED_RESET 0
 Adafruit_SSD1306 display(OLED_RESET);
@@ -25,7 +28,7 @@ const char* mqttServer = "docker-master-1";
 const int mqttPort = 1883;
 
 WiFiClient espClient;
-MQTTClient client;
+PubSubClient client(espClient);
 
 void setup() {
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
@@ -42,8 +45,8 @@ void setup() {
   }
 
   displayText("BOOT", "MQTT");
-  client.begin("docker-master-1", espClient);
-  client.onMessage(messageReceived);
+  client.setServer(mqttServer, mqttPort);
+  client.setCallback(callback);
 
   displayText("BOOT", "MQTT ...");
   while (!client.connected()) {
@@ -56,7 +59,7 @@ void setup() {
     } else { 
       displayText("BOOT", "MQTT X");
       delay(2000);
-      displayText("MQTT", String(client.lastError())); 
+      displayText("MQTT", String(client.state())); 
       delay(2000);
     }
 }
@@ -69,8 +72,8 @@ void setup() {
 void loop() {
   float h = dht.readHumidity();
   float t = dht.readTemperature();
-  client.publish("temp/in", String(t));
-  client.publish("humid/in", String(h));
+  client.publish("temp/in", String(t).c_str());
+  client.publish("humid/in", String(h).c_str());
 
   if (isnan(h) || isnan(t)) {
     displayText("error", "dht");
@@ -99,6 +102,6 @@ void displayText(String textline1, String textline2) {
   client.loop();
 }
 
-void messageReceived(String &topic, String &payload) {
-  //Serial.println("incoming: " + topic + " - " + payload);
+void callback(char* topic, byte* payload, unsigned int length) {
+  //
 }
