@@ -1,10 +1,9 @@
+#include "arduino_secrets.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-
- #include <MQTT.h>
 
 #include <DHT.h>
 #include <DHT_U.h>
@@ -18,9 +17,13 @@ const char* password =  SECRET_PASSWD;
 const char* mqttServer = "docker-master-1";
 const int mqttPort = 1883;
 
-int outsideTemp = 0;
-int insideTemp = 0;
-int outsideHumidity = 0;
+float outsideTemperature = 0;
+float insideTemperature = 0;
+float outsideHumidity = 0;
+double outsideDewPoint = 0;
+
+unsigned long expectedUpdateInterval = 10 * 60 * 1000; //ms
+unsigned long lastUpdateMillis = 0;
 
 //generated with: http://javl.github.io/image2cpp/
 const unsigned char rain [] PROGMEM = {
@@ -90,7 +93,7 @@ const unsigned char cloudy [] PROGMEM = {
 };
 
 WiFiClient espClient;
-MQTTClient client;
+PubSubClient client(espClient);
 int screenIndex = 0;
 unsigned long interval = 8000; // the time we need to wait between screen changes
 unsigned long previousMillis = 0;
@@ -110,8 +113,8 @@ void setup() {
   displayProgress(50);
 
   displayText("BOOT", "MQTT");
-  client.begin("docker-master-1", espClient);
-  client.onMessage(messageReceived);
+  client.setServer(mqttServer, mqttPort);
+  client.setCallback(callback);
   displayProgress(60);
 
   displayText("BOOT", "MQTT ...");
@@ -127,7 +130,7 @@ void setup() {
     } else {
       displayText("BOOT", "MQTT X");
       delay(2000);
-      displayText("MQTT", String(client.lastError()));
+      displayText("MQTT", String(client.state()));
       delay(2000);
     }
   }
@@ -145,7 +148,11 @@ void loop() {
   if ((unsigned long)(currentMillis - previousMillis) >= interval) {
     screenIndex ++;
     if (screenIndex > 1) {
-      screenIndex = 0;
+      if ((unsigned long)(millis() - lastUpdateMillis) >= expectedUpdateInterval) {
+        screenIndex = -1; //show battery screen
+      } else {
+        screenIndex = 0;
+      }
     }
     showScreen(screenIndex);
     previousMillis = millis();
@@ -165,25 +172,25 @@ void showScreen(int index) {
     //  displayInsideTemperature();
     //  break;
     default:
-      // statements
+      displayChargeLevel(0);
       break;
   }
 }
 
 void displayOutsideTemperature() {
-  displayText(String(outsideTemp), "OUT");
+  displayText(String(round(outsideTemperature)), "OUT");
 }
 
 void displayInsideTemperature() {
-  displayText(String(insideTemp),"IN");
+  displayText(String(round(insideTemperature)), "IN");
 }
 
 void displayOutsidePrediction() {
   display.clearDisplay();
-  if (outsideHumidity > 77) {
+  if (outsideTemperature < outsideDewPoint * 1.5) {
     display.drawBitmap(0, 0,  rain, 48, 48, 1);
   } else {
-    if (outsideHumidity > 50) {
+    if (outsideTemperature < outsideDewPoint) {
       display.drawBitmap(0, 0,  cloudy, 48, 48, 1);
     } else {
       display.drawBitmap(0, 0,  sun, 48, 48, 1);
@@ -192,8 +199,14 @@ void displayOutsidePrediction() {
   display.setTextSize(0);
   display.setTextColor(WHITE);
   display.setCursor(50, 0);
-  display.println(String(outsideHumidity));
+  display.println(String(round(outsideHumidity)));
+  display.setCursor(50, 10);
+  display.println(String(round(outsideDewPoint)));
   display.display();
+}
+
+void displayChargeLevel(int level) {
+  displayText("BAT", "");
 }
 
 void displayText(String textline1, String textline2) {
@@ -219,14 +232,24 @@ void displayProgress(int i) {
   display.display();
 }
 
-void messageReceived(String &topic, String &payload) {
+void callback(char* topicArray, byte* payloadArray, unsigned int length) {
+  Serial.println(system_get_rtc_time());
+  String payload = String((char*)payloadArray);
+  String topic = String(topicArray);
   Serial.println("Message received: " + topic + " = " + payload);
   if (topic.startsWith("temp")) {
     Serial.println("update outside temperature");
-    outsideTemp = round(payload.toFloat());
+    outsideTemperature = payload.toFloat();
   }
   if (topic.startsWith("humid")) {
     Serial.println("update outside humidity");
-    outsideHumidity = round(payload.toFloat());
+    outsideHumidity = payload.toFloat();
   }
+  calculateDewPoint();
+  lastUpdateMillis = millis();
+}
+
+void calculateDewPoint() {
+  double gamma = log(outsideHumidity / 100) + ((17.62 * outsideTemperature) / (243.5 + outsideTemperature));
+  outsideDewPoint = 243.5 * gamma / (17.62 - gamma);
 }
