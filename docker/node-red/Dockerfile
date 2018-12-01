@@ -1,2 +1,2 @@
 FROM nodered/node-red-docker:rpi
-ADD flows.json /data
+ADD flows.json /data/lib/flows/
