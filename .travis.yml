@@ -18,6 +18,24 @@ matrix:
         docker push $DOCKER_USERNAME/mqtt-armhf:$TAG
         docker push $DOCKER_USERNAME/mqtt-armhf
       fi
+  - sudo: required
+    services:
+    - docker
+    language: bash
+    before_script:
+    - cd docker/node-red
+    script:
+    - docker run --rm --privileged multiarch/qemu-user-static:register --reset
+    - docker build -t $DOCKER_USERNAME/node-red-armhf .
+    - |
+      if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
+        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+        #TAG=$(grep "ENV MYSQL_VERSION" Dockerfile | awk 'NF>1{print $NF}')
+        TAG='latest'
+        docker tag $DOCKER_USERNAME/node-red-armhf $DOCKER_USERNAME/node-red-armhf:$TAG
+        docker push $DOCKER_USERNAME/node-red-armhf:$TAG
+        docker push $DOCKER_USERNAME/node-red-armhf
+      fi
   - language: c
     before_install:
       - "/sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_1.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :1 -ac -screen 0 1280x1024x16"
