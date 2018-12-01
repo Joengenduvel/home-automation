@@ -1,0 +1,28 @@
+returnObject.payload[0].main.temp - dewpoint;\nreturnObject.payload[0].clouds.all = 100 - temperature_difference;\n\n\n\nreturn returnObject","outputs":1,"noerr":0,"x":800,"y":300,"wires":[["13aa1df9.93a7a2"
+]]},{"id":"7f3f2216.0fecfc","type":"mqtt in","z":"58a0e99e.130738","name":"outside humidity (59689)","topic":"humid/59689","qos":"0","broker":"e8b98e4a.36988","x":270,"y":320,"wires":[["3460502e.31059"]]},{"
+id":"3460502e.31059","type":"join","z":"58a0e99e.130738","name":"combine readings","mode":"custom","build":"object","property":"payload","propertyType":"msg","key":"topic","joiner":"\\n","joinerType":"str","
+accumulate":false,"timeout":"10","count":"","reduceRight":false,"reduceExp":"","reduceInit":"","reduceInitType":"","reduceFixup":"","x":570,"y":300,"wires":[["e4634afe.974738"]]},{"id":"4089c13.e842b4","type
+":"inject","z":"b2fd340c.99c6b8","name":"seconds","topic":"","payload":"","payloadType":"date","repeat":"1","crontab":"","once":false,"onceDelay":0.1,"x":200,"y":80,"wires":[["702e1342.e60e7c"]]},{"id":"702e
+1342.e60e7c","type":"mqtt out","z":"b2fd340c.99c6b8","name":"","topic":"time/seconds","qos":"0","retain":"","broker":"e8b98e4a.36988","x":420,"y":80,"wires":[]},{"id":"bdf87744.aa17b8","type":"inject","z":"5
+8a0e99e.130738","name":"","topic":"","payload":"","payloadType":"date","repeat":"3600","crontab":"","once":true,"onceDelay":0.1,"x":250,"y":500,"wires":[["76f6911c.4de08"]]},{"id":"76f6911c.4de08","type":"ht
+tp request","z":"58a0e99e.130738","name":"weather forecast","method":"GET","ret":"obj","url":"http://api.openweathermap.org/data/2.5/forecast?q=wellen,be&units=metric&appid=db37c1952446b4763785ad4701db93d6",
+"tls":"","x":570,"y":500,"wires":[["d0ae6dd8.fd76b"]]},{"id":"d0ae6dd8.fd76b","type":"change","z":"58a0e99e.130738","name":"extract list","rules":[{"t":"set","p":"payload","pt":"msg","to":"payload.list","tot
+":"msg"}],"action":"","property":"","from":"","to":"","reg":false,"x":780,"y":500,"wires":[["13aa1df9.93a7a2"]]},{"id":"13aa1df9.93a7a2","type":"function","z":"58a0e99e.130738","name":"enhance data","func":"
+function sendMessage(item, index) {\n    var now = new Date();\n    var date = new Date(item.dt*1000);\n    item.deltaHours = Date.hoursBetween(now, date);\n    item.date = date;\n    node.send({\"payload\":
+item});\n}\n\nDate.hoursBetween = function( date1, date2 ) {     \n    var one_hour=1000*60*60;    \n    return Math.round((date2.getTime() - date1.getTime())/one_hour); \n }\n \n msg.payload.forEach(sendMes
+sage)\n ","outputs":1,"noerr":0,"x":1060,"y":400,"wires":[["20be6733.ea50e8"]]},{"id":"20be6733.ea50e8","type":"function","z":"58a0e99e.130738","name":"extract values","func":"node.send(\n    {\n        time
+stamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.main.temp,\n        subject: \"temperature\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.
+dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.main.humidity,\n        subject: \"humidity\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        delt
+aHours: msg.payload.deltaHours,\n        payload:  msg.payload.clouds.all,\n        subject: \"precipitation\"\n    }\n);\n\nvar symbol = \"rainy\";\n\nif(msg.payload.clouds.all<95){\n    symbol = \"cloudy\"
+;\n}\n\nif(msg.payload.clouds.all<70){\n    symbol = \"sunny\";\n}\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: symbol,\n        sub
+ject: \"symbol\"\n    }\n);\n\nvar k = Math.log(msg.payload.main.humidity/100) + (17.62 * msg.payload.main.temp) / (243.12 + msg.payload.main.temp);\nvar dewpoint = 243.12 * k / (17.62 - k);\n\nnode.send(\n
+   {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: dewpoint,\n        subject: \"dewpoint\"\n    }\n);","outputs":1,"noerr":0,"x":1340,"y":400,"wires":[["
+41a898d0.4a39b8"]]},{"id":"3acef89e.4e51e8","type":"mqtt out","z":"58a0e99e.130738","name":"MQTT","topic":"","qos":"0","retain":"true","broker":"e8b98e4a.36988","x":1790,"y":400,"wires":[]},{"id":"41a898d0.4
+a39b8","type":"function","z":"58a0e99e.130738","name":"calculate topic","func":"msg.topic = \"weather/actual/\"+msg.subject\nif(msg.deltaHours > 0){\n    msg.topic = msg.topic.replace(\"actual\", \"predictio
+n/\" + Math.round((msg.deltaHours+1)/3)*3);\n}\nreturn msg;","outputs":1,"noerr":0,"x":1600,"y":400,"wires":[["3acef89e.4e51e8"]]},{"id":"8ff73f31.327b2","type":"mqtt in","z":"7f162913.6615d8","name":"batter
+y/3.3","topic":"battery/3.3/+","qos":"0","broker":"e8b98e4a.36988","x":240,"y":200,"wires":[["897ccf61.90146"]]},{"id":"897ccf61.90146","type":"switch","z":"7f162913.6615d8","name":"low battery","property":"
+payload","propertyType":"msg","rules":[{"t":"lt","v":"2.6","vt":"num"}],"checkall":"true","repair":false,"outputs":1,"x":430,"y":200,"wires":[["bd20e9c6.827fb8"]]},{"id":"6f00e0cd.ca93e","type":"http request
+","z":"7f162913.6615d8","name":"","method":"POST","ret":"txt","url":"https://maker.ifttt.com/trigger/low_battery/with/key/c4-fhVHoamvYA3XXsTtMcNPp-H2755vlzHHhFxbnvxe","tls":"","x":850,"y":200,"wires":[["ba7b
+103.bf362f"]]},{"id":"ba7b103.bf362f","type":"debug","z":"7f162913.6615d8","name":"","active":false,"tosidebar":true,"console":false,"tostatus":false,"complete":"false","x":1030,"y":200,"wires":[]},{"id":"bd
+20e9c6.827fb8","type":"function","z":"7f162913.6615d8","name":"Add details to body","func":"msg.payload = {\"value1\":msg.topic}\nreturn msg;","outputs":1,"noerr":0,"x":630,"y":200,"wires":[["6f00e0cd.ca93e"
+]]}]
