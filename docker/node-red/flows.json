@@ -1,28 +1,458 @@
-returnObject.payload[0].main.temp - dewpoint;\nreturnObject.payload[0].clouds.all = 100 - temperature_difference;\n\n\n\nreturn returnObject","outputs":1,"noerr":0,"x":800,"y":300,"wires":[["13aa1df9.93a7a2"
-]]},{"id":"7f3f2216.0fecfc","type":"mqtt in","z":"58a0e99e.130738","name":"outside humidity (59689)","topic":"humid/59689","qos":"0","broker":"e8b98e4a.36988","x":270,"y":320,"wires":[["3460502e.31059"]]},{"
-id":"3460502e.31059","type":"join","z":"58a0e99e.130738","name":"combine readings","mode":"custom","build":"object","property":"payload","propertyType":"msg","key":"topic","joiner":"\\n","joinerType":"str","
-accumulate":false,"timeout":"10","count":"","reduceRight":false,"reduceExp":"","reduceInit":"","reduceInitType":"","reduceFixup":"","x":570,"y":300,"wires":[["e4634afe.974738"]]},{"id":"4089c13.e842b4","type
-":"inject","z":"b2fd340c.99c6b8","name":"seconds","topic":"","payload":"","payloadType":"date","repeat":"1","crontab":"","once":false,"onceDelay":0.1,"x":200,"y":80,"wires":[["702e1342.e60e7c"]]},{"id":"702e
-1342.e60e7c","type":"mqtt out","z":"b2fd340c.99c6b8","name":"","topic":"time/seconds","qos":"0","retain":"","broker":"e8b98e4a.36988","x":420,"y":80,"wires":[]},{"id":"bdf87744.aa17b8","type":"inject","z":"5
-8a0e99e.130738","name":"","topic":"","payload":"","payloadType":"date","repeat":"3600","crontab":"","once":true,"onceDelay":0.1,"x":250,"y":500,"wires":[["76f6911c.4de08"]]},{"id":"76f6911c.4de08","type":"ht
-tp request","z":"58a0e99e.130738","name":"weather forecast","method":"GET","ret":"obj","url":"http://api.openweathermap.org/data/2.5/forecast?q=wellen,be&units=metric&appid=db37c1952446b4763785ad4701db93d6",
-"tls":"","x":570,"y":500,"wires":[["d0ae6dd8.fd76b"]]},{"id":"d0ae6dd8.fd76b","type":"change","z":"58a0e99e.130738","name":"extract list","rules":[{"t":"set","p":"payload","pt":"msg","to":"payload.list","tot
-":"msg"}],"action":"","property":"","from":"","to":"","reg":false,"x":780,"y":500,"wires":[["13aa1df9.93a7a2"]]},{"id":"13aa1df9.93a7a2","type":"function","z":"58a0e99e.130738","name":"enhance data","func":"
-function sendMessage(item, index) {\n    var now = new Date();\n    var date = new Date(item.dt*1000);\n    item.deltaHours = Date.hoursBetween(now, date);\n    item.date = date;\n    node.send({\"payload\":
-item});\n}\n\nDate.hoursBetween = function( date1, date2 ) {     \n    var one_hour=1000*60*60;    \n    return Math.round((date2.getTime() - date1.getTime())/one_hour); \n }\n \n msg.payload.forEach(sendMes
-sage)\n ","outputs":1,"noerr":0,"x":1060,"y":400,"wires":[["20be6733.ea50e8"]]},{"id":"20be6733.ea50e8","type":"function","z":"58a0e99e.130738","name":"extract values","func":"node.send(\n    {\n        time
-stamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.main.temp,\n        subject: \"temperature\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.
-dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.main.humidity,\n        subject: \"humidity\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        delt
-aHours: msg.payload.deltaHours,\n        payload:  msg.payload.clouds.all,\n        subject: \"precipitation\"\n    }\n);\n\nvar symbol = \"rainy\";\n\nif(msg.payload.clouds.all<95){\n    symbol = \"cloudy\"
-;\n}\n\nif(msg.payload.clouds.all<70){\n    symbol = \"sunny\";\n}\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: symbol,\n        sub
-ject: \"symbol\"\n    }\n);\n\nvar k = Math.log(msg.payload.main.humidity/100) + (17.62 * msg.payload.main.temp) / (243.12 + msg.payload.main.temp);\nvar dewpoint = 243.12 * k / (17.62 - k);\n\nnode.send(\n
-   {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: dewpoint,\n        subject: \"dewpoint\"\n    }\n);","outputs":1,"noerr":0,"x":1340,"y":400,"wires":[["
-41a898d0.4a39b8"]]},{"id":"3acef89e.4e51e8","type":"mqtt out","z":"58a0e99e.130738","name":"MQTT","topic":"","qos":"0","retain":"true","broker":"e8b98e4a.36988","x":1790,"y":400,"wires":[]},{"id":"41a898d0.4
-a39b8","type":"function","z":"58a0e99e.130738","name":"calculate topic","func":"msg.topic = \"weather/actual/\"+msg.subject\nif(msg.deltaHours > 0){\n    msg.topic = msg.topic.replace(\"actual\", \"predictio
-n/\" + Math.round((msg.deltaHours+1)/3)*3);\n}\nreturn msg;","outputs":1,"noerr":0,"x":1600,"y":400,"wires":[["3acef89e.4e51e8"]]},{"id":"8ff73f31.327b2","type":"mqtt in","z":"7f162913.6615d8","name":"batter
-y/3.3","topic":"battery/3.3/+","qos":"0","broker":"e8b98e4a.36988","x":240,"y":200,"wires":[["897ccf61.90146"]]},{"id":"897ccf61.90146","type":"switch","z":"7f162913.6615d8","name":"low battery","property":"
-payload","propertyType":"msg","rules":[{"t":"lt","v":"2.6","vt":"num"}],"checkall":"true","repair":false,"outputs":1,"x":430,"y":200,"wires":[["bd20e9c6.827fb8"]]},{"id":"6f00e0cd.ca93e","type":"http request
-","z":"7f162913.6615d8","name":"","method":"POST","ret":"txt","url":"https://maker.ifttt.com/trigger/low_battery/with/key/c4-fhVHoamvYA3XXsTtMcNPp-H2755vlzHHhFxbnvxe","tls":"","x":850,"y":200,"wires":[["ba7b
-103.bf362f"]]},{"id":"ba7b103.bf362f","type":"debug","z":"7f162913.6615d8","name":"","active":false,"tosidebar":true,"console":false,"tostatus":false,"complete":"false","x":1030,"y":200,"wires":[]},{"id":"bd
-20e9c6.827fb8","type":"function","z":"7f162913.6615d8","name":"Add details to body","func":"msg.payload = {\"value1\":msg.topic}\nreturn msg;","outputs":1,"noerr":0,"x":630,"y":200,"wires":[["6f00e0cd.ca93e"
-]]}]
+[
+    {
+        "id": "58a0e99e.130738",
+        "type": "tab",
+        "label": "Weather",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "b2fd340c.99c6b8",
+        "type": "tab",
+        "label": "time",
+        "disabled": true,
+        "info": ""
+    },
+    {
+        "id": "7f162913.6615d8",
+        "type": "tab",
+        "label": "Battery",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "482423cd.7a30bc",
+        "type": "subflow",
+        "name": "Subflow 1",
+        "info": "",
+        "in": [],
+        "out": []
+    },
+    {
+        "id": "e8b98e4a.36988",
+        "type": "mqtt-broker",
+        "z": "",
+        "name": "mqtt",
+        "broker": "http://docker-master-1",
+        "port": "1883",
+        "clientid": "node-red",
+        "usetls": false,
+        "compatmode": false,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "598a2bb7.628634",
+        "type": "mqtt in",
+        "z": "58a0e99e.130738",
+        "name": "outside temp (59689)",
+        "topic": "temp/59689",
+        "qos": "0",
+        "broker": "e8b98e4a.36988",
+        "x": 260,
+        "y": 260,
+        "wires": [
+            [
+                "3460502e.31059",
+                "ac7bc03.83e274"
+            ]
+        ]
+    },
+    {
+        "id": "e4634afe.974738",
+        "type": "function",
+        "z": "58a0e99e.130738",
+        "name": "construct object",
+        "func": "var returnObject = {\n    payload: [{\n        dt:-1,\n        main:{\n            humidity: parseFloat(msg.payload[\"humid/59689\"]),\n            temp: parseFloat(msg.payload[\"temp/59689\"])\n        },\n        clouds:{},\n        weather:[{icon:\"01d\"}]\n    }]\n};\n\n\nvar k = Math.log(returnObject.payload[0].main.humidity/100) + (17.62 * returnObject.payload[0].main.temp) / (243.12 + returnObject.payload[0].main.temp);\nvar dewpoint = 243.12 * k / (17.62 - k);\n\nvar temperature_difference = returnObject.payload[0].main.temp - dewpoint;\nreturnObject.payload[0].clouds.all = 100 - temperature_difference;\n\nreturnObject.payload[0].weather[0].icon = \"09d\";\n\nif(msg.payload.clouds.all<95){\n    returnObject.payload[0].weather[0].icon = \"04d\";\n}\n\nif(msg.payload.clouds.all<70){\n    returnObject.payload[0].weather[0].icon = \"01d\";\n}\n\nreturn returnObject",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 800,
+        "y": 300,
+        "wires": [
+            [
+                "13aa1df9.93a7a2"
+            ]
+        ]
+    },
+    {
+        "id": "7f3f2216.0fecfc",
+        "type": "mqtt in",
+        "z": "58a0e99e.130738",
+        "name": "outside humidity (59689)",
+        "topic": "humid/59689",
+        "qos": "0",
+        "broker": "e8b98e4a.36988",
+        "x": 270,
+        "y": 320,
+        "wires": [
+            [
+                "3460502e.31059",
+                "ac7bc03.83e274"
+            ]
+        ]
+    },
+    {
+        "id": "3460502e.31059",
+        "type": "join",
+        "z": "58a0e99e.130738",
+        "name": "combine readings",
+        "mode": "custom",
+        "build": "object",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "\\n",
+        "joinerType": "str",
+        "accumulate": false,
+        "timeout": "10",
+        "count": "",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "",
+        "reduceFixup": "",
+        "x": 570,
+        "y": 300,
+        "wires": [
+            [
+                "e4634afe.974738"
+            ]
+        ]
+    },
+    {
+        "id": "4089c13.e842b4",
+        "type": "inject",
+        "z": "b2fd340c.99c6b8",
+        "name": "seconds",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "repeat": "1",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "x": 200,
+        "y": 80,
+        "wires": [
+            [
+                "702e1342.e60e7c"
+            ]
+        ]
+    },
+    {
+        "id": "702e1342.e60e7c",
+        "type": "mqtt out",
+        "z": "b2fd340c.99c6b8",
+        "name": "",
+        "topic": "time/seconds",
+        "qos": "0",
+        "retain": "",
+        "broker": "e8b98e4a.36988",
+        "x": 420,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "bdf87744.aa17b8",
+        "type": "inject",
+        "z": "58a0e99e.130738",
+        "name": "",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "repeat": "3600",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "x": 250,
+        "y": 500,
+        "wires": [
+            [
+                "76f6911c.4de08"
+            ]
+        ]
+    },
+    {
+        "id": "76f6911c.4de08",
+        "type": "http request",
+        "z": "58a0e99e.130738",
+        "name": "weather forecast",
+        "method": "GET",
+        "ret": "obj",
+        "url": "http://api.openweathermap.org/data/2.5/forecast?q=wellen,be&units=metric&appid=db37c1952446b4763785ad4701db93d6",
+        "tls": "",
+        "x": 570,
+        "y": 500,
+        "wires": [
+            [
+                "d0ae6dd8.fd76b",
+                "ac7bc03.83e274"
+            ]
+        ]
+    },
+    {
+        "id": "d0ae6dd8.fd76b",
+        "type": "change",
+        "z": "58a0e99e.130738",
+        "name": "extract list",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.list",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 780,
+        "y": 500,
+        "wires": [
+            [
+                "13aa1df9.93a7a2"
+            ]
+        ]
+    },
+    {
+        "id": "13aa1df9.93a7a2",
+        "type": "function",
+        "z": "58a0e99e.130738",
+        "name": "enhance data",
+        "func": "function sendMessage(item, index) {\n    var now = new Date();\n    var date = new Date(item.dt*1000);\n    item.deltaHours = Date.hoursBetween(now, date);\n    item.date = date;\n    node.send({\"payload\":item});\n}\n\nDate.hoursBetween = function( date1, date2 ) {     \n    var one_hour=1000*60*60;    \n    return Math.round((date2.getTime() - date1.getTime())/one_hour); \n }\n \n msg.payload.forEach(sendMessage)\n ",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 1060,
+        "y": 400,
+        "wires": [
+            [
+                "20be6733.ea50e8"
+            ]
+        ]
+    },
+    {
+        "id": "20be6733.ea50e8",
+        "type": "function",
+        "z": "58a0e99e.130738",
+        "name": "extract values",
+        "func": "node.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.main.temp,\n        subject: \"temperature\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.main.humidity,\n        subject: \"humidity\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.clouds.all,\n        subject: \"precipitation\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.weather[0].icon,\n        subject: \"icon\"\n    }\n);\n\nvar k = Math.log(msg.payload.main.humidity/100) + (17.62 * msg.payload.main.temp) / (243.12 + msg.payload.main.temp);\nvar dewpoint = 243.12 * k / (17.62 - k);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: dewpoint,\n        subject: \"dewpoint\"\n    }\n);",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 1340,
+        "y": 400,
+        "wires": [
+            [
+                "41a898d0.4a39b8"
+            ]
+        ]
+    },
+    {
+        "id": "3acef89e.4e51e8",
+        "type": "mqtt out",
+        "z": "58a0e99e.130738",
+        "name": "MQTT",
+        "topic": "",
+        "qos": "0",
+        "retain": "true",
+        "broker": "e8b98e4a.36988",
+        "x": 1790,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "41a898d0.4a39b8",
+        "type": "function",
+        "z": "58a0e99e.130738",
+        "name": "calculate topic",
+        "func": "msg.topic = \"weather/actual/\"+msg.subject\nif(msg.deltaHours > 0){\n    msg.topic = msg.topic.replace(\"actual\", \"prediction/\" + Math.round((msg.deltaHours+1)/3)*3);\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 1600,
+        "y": 400,
+        "wires": [
+            [
+                "3acef89e.4e51e8"
+            ]
+        ]
+    },
+    {
+        "id": "8ff73f31.327b2",
+        "type": "mqtt in",
+        "z": "7f162913.6615d8",
+        "name": "battery/3.3",
+        "topic": "battery/3.3/+",
+        "qos": "0",
+        "broker": "e8b98e4a.36988",
+        "x": 140,
+        "y": 200,
+        "wires": [
+            [
+                "897ccf61.90146",
+                "1c724b07.8ccaf5",
+                "506464c4.c5193c"
+            ]
+        ]
+    },
+    {
+        "id": "897ccf61.90146",
+        "type": "switch",
+        "z": "7f162913.6615d8",
+        "name": "low battery",
+        "property": "payload",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "lt",
+                "v": "2.6",
+                "vt": "num"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 1,
+        "x": 370,
+        "y": 160,
+        "wires": [
+            [
+                "bd20e9c6.827fb8"
+            ]
+        ]
+    },
+    {
+        "id": "6f00e0cd.ca93e",
+        "type": "http request",
+        "z": "7f162913.6615d8",
+        "name": "",
+        "method": "POST",
+        "ret": "txt",
+        "url": "https://maker.ifttt.com/trigger/low_battery/with/key/c4-fhVHoamvYA3XXsTtMcNPp-H2755vlzHHhFxbnvxe",
+        "tls": "",
+        "x": 850,
+        "y": 200,
+        "wires": [
+            [
+                "ba7b103.bf362f"
+            ]
+        ]
+    },
+    {
+        "id": "ba7b103.bf362f",
+        "type": "debug",
+        "z": "7f162913.6615d8",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "x": 1030,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "bd20e9c6.827fb8",
+        "type": "function",
+        "z": "7f162913.6615d8",
+        "name": "Add details to body",
+        "func": "msg.payload = {\"value1\":msg.topic}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 630,
+        "y": 200,
+        "wires": [
+            [
+                "6f00e0cd.ca93e"
+            ]
+        ]
+    },
+    {
+        "id": "ac7bc03.83e274",
+        "type": "debug",
+        "z": "58a0e99e.130738",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "x": 660,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "1c724b07.8ccaf5",
+        "type": "trigger",
+        "z": "7f162913.6615d8",
+        "op1": "1",
+        "op2": "0",
+        "op1type": "str",
+        "op2type": "str",
+        "duration": "25",
+        "extend": true,
+        "units": "min",
+        "reset": "",
+        "bytopic": "topic",
+        "name": "Check heartbeat",
+        "x": 360,
+        "y": 220,
+        "wires": [
+            [
+                "bd20e9c6.827fb8"
+            ]
+        ]
+    },
+    {
+        "id": "5cabf8e1.08b0b8",
+        "type": "mqtt out",
+        "z": "7f162913.6615d8",
+        "name": "",
+        "topic": "",
+        "qos": "0",
+        "retain": "true",
+        "broker": "e8b98e4a.36988",
+        "x": 590,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "506464c4.c5193c",
+        "type": "change",
+        "z": "7f162913.6615d8",
+        "name": "",
+        "rules": [
+            {
+                "t": "change",
+                "p": "topic",
+                "pt": "msg",
+                "from": "3.3",
+                "fromt": "str",
+                "to": "levels",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 370,
+        "y": 300,
+        "wires": [
+            [
+                "5cabf8e1.08b0b8"
+            ]
+        ]
+    }
+]
