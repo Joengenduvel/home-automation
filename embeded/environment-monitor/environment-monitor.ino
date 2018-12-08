@@ -19,6 +19,7 @@ const int mqttPort = 1883;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
+ADC_MODE(ADC_VCC);
 
 void setup() {
   WiFi.begin(ssid, password);
@@ -27,13 +28,21 @@ void setup() {
   String connectionId = String("environment-monitor: " + String(ESP.getChipId()));
   String tempTopic = String("temp/" + String(ESP.getChipId()));
   String humidTopic = String("humid/" + String(ESP.getChipId()));
+  String voltTopic = String("battery/3.3/" + String(ESP.getChipId()));
   
   String temperature = String(dht.readTemperature());
   String humidity = String(dht.readHumidity());
-  
+
+  float vdd = 0;
+  int measurements = 1;
+  vdd += ESP.getVcc() / 1024.0;
   while (WiFi.status() != WL_CONNECTED && millis() < maxWorkTime) {
+    vdd += ESP.getVcc() / 1024.0;
+    measurements++;
     delay(500);
   }
+  vdd = vdd/measurements;
+  String voltage = String(vdd);
 
     
   client.setServer(mqttServer, mqttPort);
@@ -48,6 +57,8 @@ void setup() {
   client.publish(humidTopic.c_str(), humidity.c_str());
   delay(60);
   client.publish(tempTopic.c_str(), temperature.c_str());
+  delay(60);
+  client.publish(voltTopic.c_str(), voltage.c_str());
   client.loop();
   client.disconnect();
 }
