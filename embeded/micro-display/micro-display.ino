@@ -21,6 +21,7 @@ float outsideTemperature = 0;
 float insideTemperature = 0;
 float outsideHumidity = 0;
 double outsideDewPoint = 0;
+char symbol = 's';
 
 unsigned long expectedUpdateInterval = 10 * 60 * 1000; //ms
 unsigned long lastUpdateMillis = 0;
@@ -124,7 +125,7 @@ void setup() {
     if (client.connect("ESP8266Client")) {
 
       displayText("BOOT", "MQTT V");
-      client.subscribe("+/59689"); //outside
+      client.subscribe("weather/actual/+"); //outside
       displayProgress(100);
 
     } else {
@@ -187,10 +188,10 @@ void displayInsideTemperature() {
 
 void displayOutsidePrediction() {
   display.clearDisplay();
-  if (outsideTemperature < outsideDewPoint * 1.5) {
+  if (symbol == 'r') {
     display.drawBitmap(0, 0,  rain, 48, 48, 1);
   } else {
-    if (outsideTemperature < outsideDewPoint) {
+    if (symbol == 'c') {
       display.drawBitmap(0, 0,  cloudy, 48, 48, 1);
     } else {
       display.drawBitmap(0, 0,  sun, 48, 48, 1);
@@ -233,23 +234,31 @@ void displayProgress(int i) {
 }
 
 void callback(char* topicArray, byte* payloadArray, unsigned int length) {
-  Serial.println(system_get_rtc_time());
   String payload = String((char*)payloadArray);
   String topic = String(topicArray);
   Serial.println("Message received: " + topic + " = " + payload);
-  if (topic.startsWith("temp")) {
+  if (topic.endsWith("temperature")) {
     Serial.println("update outside temperature");
     outsideTemperature = payload.toFloat();
   }
-  if (topic.startsWith("humid")) {
+  if (topic.endsWith("humidity")) {
     Serial.println("update outside humidity");
     outsideHumidity = payload.toFloat();
   }
-  calculateDewPoint();
+  if (topic.endsWith("dewpoint")) {
+    Serial.println("update outside dewpoint");
+    outsideDewPoint = payload.toFloat();
+  }
+  if (topic.endsWith("icon")) {
+    symbol = 'c';
+    Serial.println("update outside symbol");
+    if(payload.startsWith("09") || payload.startsWith("1")){
+      symbol = 'r';
+    }
+    if(payload.startsWith("01")){
+      symbol = 's';
+    }
+    Serial.println(symbol);
+  }
   lastUpdateMillis = millis();
-}
-
-void calculateDewPoint() {
-  double gamma = log(outsideHumidity / 100) + ((17.62 * outsideTemperature) / (243.5 + outsideTemperature));
-  outsideDewPoint = 243.5 * gamma / (17.62 - gamma);
 }
