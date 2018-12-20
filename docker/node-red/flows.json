@@ -62,8 +62,7 @@
         "y": 260,
         "wires": [
             [
-                "3460502e.31059",
-                "ac7bc03.83e274"
+                "3460502e.31059"
             ]
         ]
     },
@@ -95,8 +94,7 @@
         "y": 320,
         "wires": [
             [
-                "3460502e.31059",
-                "ac7bc03.83e274"
+                "3460502e.31059"
             ]
         ]
     },
@@ -169,7 +167,7 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "repeat": "3600",
+        "repeat": "3000",
         "crontab": "",
         "once": true,
         "onceDelay": 0.1,
@@ -177,6 +175,7 @@
         "y": 500,
         "wires": [
             [
+                "1aa15b6a.f69355",
                 "76f6911c.4de08"
             ]
         ]
@@ -194,8 +193,7 @@
         "y": 500,
         "wires": [
             [
-                "d0ae6dd8.fd76b",
-                "ac7bc03.83e274"
+                "27009f25.d3b18"
             ]
         ]
     },
@@ -219,7 +217,7 @@
         "to": "",
         "reg": false,
         "x": 780,
-        "y": 500,
+        "y": 380,
         "wires": [
             [
                 "13aa1df9.93a7a2"
@@ -231,7 +229,7 @@
         "type": "function",
         "z": "58a0e99e.130738",
         "name": "enhance data",
-        "func": "function sendMessage(item, index) {\n    var now = new Date();\n    var date = new Date(item.dt*1000);\n    item.deltaHours = Date.hoursBetween(now, date);\n    item.date = date;\n    node.send({\"payload\":item});\n}\n\nDate.hoursBetween = function( date1, date2 ) {     \n    var one_hour=1000*60*60;    \n    return Math.round((date2.getTime() - date1.getTime())/one_hour); \n }\n \n msg.payload.forEach(sendMessage)\n ",
+        "func": "function sendMessage(item, index) {\n    var now = new Date();\n    var date = new Date(0);\n    date.setUTCSeconds(item.dt);\n    item.deltaHours = Date.hoursBetween(now, date);\n    item.date = date;\n    node.send({\"payload\":item});\n}\n\nDate.hoursBetween = function( date1, date2 ) {     \n    var one_hour=1000*60*60;    \n    return Math.round((date2.getTime() - date1.getTime())/one_hour); \n }\n \n msg.payload.forEach(sendMessage)\n ",
         "outputs": 1,
         "noerr": 0,
         "x": 1060,
@@ -247,7 +245,7 @@
         "type": "function",
         "z": "58a0e99e.130738",
         "name": "extract values",
-        "func": "node.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.main.temp,\n        subject: \"temperature\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.main.humidity,\n        subject: \"humidity\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.clouds.all,\n        subject: \"precipitation\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.weather[0].icon,\n        subject: \"icon\"\n    }\n);\n\nvar k = Math.log(msg.payload.main.humidity/100) + (17.62 * msg.payload.main.temp) / (243.12 + msg.payload.main.temp);\nvar dewpoint = 243.12 * k / (17.62 - k);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: dewpoint,\n        subject: \"dewpoint\"\n    }\n);",
+        "func": "node.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.main.temp,\n        subject: \"temperature\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.main.humidity,\n        subject: \"humidity\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.clouds.all,\n        subject: \"precipitation\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.weather[0].icon,\n        subject: \"icon\"\n    }\n);\n\nvar k = Math.log(msg.payload.main.humidity/100) + (17.62 * msg.payload.main.temp) / (243.12 + msg.payload.main.temp);\nvar dewpoint = 243.12 * k / (17.62 - k);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: dewpoint,\n        subject: \"dewpoint\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        date: msg.payload.date,\n        payload: new Date(msg.payload.date).toLocaleTimeString().substring(0,5),\n        subject: \"time\"\n    }\n);",
         "outputs": 1,
         "noerr": 0,
         "x": 1340,
@@ -378,20 +376,6 @@
         ]
     },
     {
-        "id": "ac7bc03.83e274",
-        "type": "debug",
-        "z": "58a0e99e.130738",
-        "name": "",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "false",
-        "x": 660,
-        "y": 200,
-        "wires": []
-    },
-    {
         "id": "1c724b07.8ccaf5",
         "type": "trigger",
         "z": "7f162913.6615d8",
@@ -452,6 +436,66 @@
         "wires": [
             [
                 "5cabf8e1.08b0b8"
+            ]
+        ]
+    },
+    {
+        "id": "1aa15b6a.f69355",
+        "type": "http request",
+        "z": "58a0e99e.130738",
+        "name": "weather now",
+        "method": "GET",
+        "ret": "obj",
+        "url": "http://api.openweathermap.org/data/2.5/weather?q=wellen,be&units=metric&appid=db37c1952446b4763785ad4701db93d6",
+        "tls": "",
+        "x": 550,
+        "y": 580,
+        "wires": [
+            [
+                "18045662.60ed0a"
+            ]
+        ]
+    },
+    {
+        "id": "27009f25.d3b18",
+        "type": "change",
+        "z": "58a0e99e.130738",
+        "name": "extract list",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.list",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 800,
+        "y": 500,
+        "wires": [
+            [
+                "13aa1df9.93a7a2"
+            ]
+        ]
+    },
+    {
+        "id": "18045662.60ed0a",
+        "type": "function",
+        "z": "58a0e99e.130738",
+        "name": "Create List",
+        "func": "msg.payload = [msg.payload]\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "x": 810,
+        "y": 580,
+        "wires": [
+            [
+                "13aa1df9.93a7a2"
             ]
         ]
     }
