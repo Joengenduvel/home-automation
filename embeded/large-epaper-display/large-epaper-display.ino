@@ -1,14 +1,10 @@
 #define ENABLE_GxEPD2_GFX 0
-#define  MQTT_MAX_PACKET_SIZE 10000
 
 #include "arduino_secrets.h"
-#include <GxEPD2_BW.h>
 #include <GxEPD2_3C.h>
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-
-#include <ArduinoJson.h>
 
 #include "sun.h"
 #include "moon.h"
@@ -44,99 +40,104 @@ float temperatures[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 String times[] = {"03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00", "00:00", "03:00"};
 
 const int sleepTime = 1 * 60 * 1e6; //1 minute
-unsigned long messageReceivedWaitTime = 5 * 1000; //10 s
+unsigned long messageReceivedWaitTime = 2000; //1 s
 unsigned long lastUpdateMillis = messageReceivedWaitTime;
+bool receivedData = false;
 
 const char* ssid = SECRET_SSID;
 const char* password =  SECRET_PASSWD;
 
 const char* mqttServer = "docker-master-1";
 const int mqttPort = 1883;
+String connectionId = "";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 void setup() {
   Serial.begin(115200);
-  WiFi.begin(ssid, password);
-  String connectionId = String("display: " + String(ESP.getChipId()));
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.println(WiFi.status());
-  }
-  Serial.println("Connected");
-
+  connectionId = String("display: " + String(ESP.getChipId()));
+  
   client.setServer(mqttServer, mqttPort);
-  client.setCallback(receiveData);
+  client.setCallback(callback);
+}
+
+void reconnect() {
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.println(WiFi.status());
+    }
+    Serial.println("Connected");
+  }
 
   while (!client.connected()) {
     Serial.print(".");
 
     if (client.connect(connectionId.c_str())) {
+      Serial.println("subscribing");
 
-      //      client.subscribe("weather/actual/temperature");
-      //      client.subscribe("weather/actual/icon");
+      client.subscribe("weather/actual/temperature");
+      client.subscribe("weather/actual/icon");
       //      client.subscribe("weather/actual/datetime");
-      //      client.subscribe("weather/prediction/+/icon");
-      //      client.subscribe("weather/prediction/+/temperature");
-      //      client.subscribe("weather/prediction/+/datetime");
-      client.subscribe("weather/now");
+      client.subscribe("weather/prediction/+/icon");
+      client.subscribe("weather/prediction/+/temperature");
+      client.subscribe("weather/prediction/+/time");
+      //client.subscribe("weather/now");
       //client.subscribe("weather/forecasts");
       Serial.println("subscribed");
+  client.loop();
 
     }
   }
-  ESP.wdtFeed();
-  client.loop();
 }
 
 void loop() {
-  //Serial.println("loop");
+  if (!client.connected()) {
+    reconnect();
+  }
+  if ((unsigned long)(millis() - lastUpdateMillis) >= messageReceivedWaitTime && receivedData) {
+    receivedData = false;
+    client.disconnect();
+    Serial.println("updating display");
+    display.init(115200);
+    display.setRotation(0);
+    display.setFullWindow();
+    display.firstPage();
+    display.drawPaged(updateScreenCallback, 0);
+
+    Serial.println(client.state());
+    Serial.println("powering off");
+    display.powerOff();
+  delay(5*60*1000);
+  }
   client.loop();
-  ESP.wdtFeed();
-  delay(50);
-//  if ((unsigned long)(millis() - lastUpdateMillis) >= messageReceivedWaitTime) {
-//    Serial.println("updating display");
-//    display.init(115200);
-//    Serial.println(display.epd2.hasFastPartialUpdate);
-//    Serial.println(display.epd2.hasPartialUpdate);
-//    display.setRotation(0);
-//    display.setFullWindow();
-//    display.firstPage();
-//    do {
-//      display.fillScreen(GxEPD_WHITE);
-//      printTemperature(margin, margin, temperatures[0], true);
-//      drawWeatherIcon(400, 0, icons[0], true);
-//      // internal temp
-//      //    PrintTemperature(margin, margin + 90, temperatures[0], true);
-//      for (int i = 1; i < 9; i++) {
-//        Serial.println(i);
-//        int x = margin + (imageSize * (i - 1));
-//        int y = 250;
-//        printTemperature(x + margin, y - 10, temperatures[i], false);
-//        drawWeatherIcon(x, y, icons[i], false);
-//        printTime(x + margin, y + imageSize + margin, times[i], false);
-//        ESP.wdtFeed();
-//        Serial.println("===========================================");
-//      }
-//
-//    }
-//    while (display.nextPage());
-//    Serial.println("powering off");
-//    display.powerOff();
-//    //go to sleep
-//    ESP.deepSleep(sleepTime);
-//  }
+}
+
+void updateScreenCallback(const void*)
+{
+      display.fillScreen(GxEPD_WHITE);
+      printTemperature(margin, margin, temperatures[0], true);
+      drawWeatherIcon(400, 0, icons[0], true);
+      // internal temp
+      //    PrintTemperature(margin, margin + 90, temperatures[0], true);
+      for (int i = 1; i < 9; i++) {
+        int x = margin + (imageSize * (i - 1));
+        int y = 250;
+        printTemperature(x + margin, y - 10, temperatures[i], false);
+        drawWeatherIcon(x, y, icons[i], false);
+        printTime(x + margin, y + imageSize + margin, times[i], false);
+      }
+    Serial.println(client.state());
+  client.loop();
 }
 
 void drawWeatherIcon(uint16_t x, uint16_t y, char conditions, bool isXL) {
   if (conditions & sun) {
-    Serial.println("sun");
     display.drawBitmap(x, y,  isXL ? sunImage_XL : sunImage, isXL ? imageSizeXL : imageSize, isXL ? imageSizeXL : imageSize, GxEPD_YELLOW);
   }
   if (conditions & moon) {
-    Serial.println("moon");
     display.drawBitmap(x, y,  isXL ? moonImage_XL : moonImage, isXL ? imageSizeXL : imageSize, isXL ? imageSizeXL : imageSize, GxEPD_BLACK);
   }
   if (conditions & darkCloud) {
@@ -175,32 +176,12 @@ char translateOpenWeatherId(String id) {
   }
 }
 
-void receiveData(char* topicArray, byte * payloadArray, unsigned int length) {
-  char* p = (char*)malloc(length);
-  memcpy(p, payloadArray, length);
-  String payload = String((char*)p);
-  free(p);
-  String topic = String(topicArray);
-  Serial.println(payload);
-
-  StaticJsonBuffer<4968> jb;
-
-  JsonObject& root = jb.parseObject(payload);
-  if (root.success()) {
-    
-  Serial.println((float)root["temperature"]);
-  } else {
-    
-  Serial.println("FAIL");
-  }
-}
-
 void callback(char* topicArray, byte * payloadArray, unsigned int length) {
-  ESP.wdtFeed();
   byte* p = (byte*)malloc(length);
   memcpy(p, payloadArray, length);
   String payload = String((char*)p);
   free(p);
+  payloadArray = {};
   String topic = String(topicArray);
 
   int index = 0;
@@ -210,15 +191,21 @@ void callback(char* topicArray, byte * payloadArray, unsigned int length) {
 
   }
   if (index < 9) {
+
+    Serial.print(topic);
+    Serial.print("=");
+    Serial.println(payload);
+
     if (topic.endsWith("icon")) {
       icons[index] = translateOpenWeatherId(payload);
     }
     if (topic.endsWith("temperature")) {
       temperatures[index] = payload.toFloat();
     }
-    if (topic.endsWith("datetime")) {
-      times[index] = payload.substring(12, 17);
+    if (topic.endsWith("time")) {
+      times[index] = payload.substring(0,5);
     }
+    receivedData = true;
   }
 
   lastUpdateMillis = millis();
