@@ -7,50 +7,6 @@
         "info": ""
     },
     {
-        "id": "b2fd340c.99c6b8",
-        "type": "tab",
-        "label": "time",
-        "disabled": true,
-        "info": ""
-    },
-    {
-        "id": "7f162913.6615d8",
-        "type": "tab",
-        "label": "Battery",
-        "disabled": false,
-        "info": ""
-    },
-    {
-        "id": "482423cd.7a30bc",
-        "type": "subflow",
-        "name": "Subflow 1",
-        "info": "",
-        "in": [],
-        "out": []
-    },
-    {
-        "id": "e8b98e4a.36988",
-        "type": "mqtt-broker",
-        "z": "",
-        "name": "mqtt",
-        "broker": "http://docker-master-1",
-        "port": "1883",
-        "clientid": "node-red",
-        "usetls": false,
-        "compatmode": false,
-        "keepalive": "60",
-        "cleansession": true,
-        "birthTopic": "",
-        "birthQos": "0",
-        "birthPayload": "",
-        "closeTopic": "",
-        "closeQos": "0",
-        "closePayload": "",
-        "willTopic": "",
-        "willQos": "0",
-        "willPayload": ""
-    },
-    {
         "id": "598a2bb7.628634",
         "type": "mqtt in",
         "z": "58a0e99e.130738",
@@ -127,39 +83,6 @@
         ]
     },
     {
-        "id": "4089c13.e842b4",
-        "type": "inject",
-        "z": "b2fd340c.99c6b8",
-        "name": "seconds",
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "repeat": "1",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "x": 200,
-        "y": 80,
-        "wires": [
-            [
-                "702e1342.e60e7c"
-            ]
-        ]
-    },
-    {
-        "id": "702e1342.e60e7c",
-        "type": "mqtt out",
-        "z": "b2fd340c.99c6b8",
-        "name": "",
-        "topic": "time/seconds",
-        "qos": "0",
-        "retain": "",
-        "broker": "e8b98e4a.36988",
-        "x": 420,
-        "y": 80,
-        "wires": []
-    },
-    {
         "id": "bdf87744.aa17b8",
         "type": "inject",
         "z": "58a0e99e.130738",
@@ -167,7 +90,7 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "repeat": "3000",
+        "repeat": "300",
         "crontab": "",
         "once": true,
         "onceDelay": 0.1,
@@ -245,7 +168,7 @@
         "type": "function",
         "z": "58a0e99e.130738",
         "name": "extract values",
-        "func": "node.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.main.temp,\n        subject: \"temperature\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.main.humidity,\n        subject: \"humidity\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.clouds.all,\n        subject: \"precipitation\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.weather[0].icon,\n        subject: \"icon\"\n    }\n);\n\nvar k = Math.log(msg.payload.main.humidity/100) + (17.62 * msg.payload.main.temp) / (243.12 + msg.payload.main.temp);\nvar dewpoint = 243.12 * k / (17.62 - k);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: dewpoint,\n        subject: \"dewpoint\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        date: msg.payload.date,\n        payload: new Date(msg.payload.date).toLocaleTimeString().substring(0,5),\n        subject: \"time\"\n    }\n);",
+        "func": "node.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.main.temp,\n        subject: \"temperature\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.main.humidity,\n        subject: \"humidity\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.clouds.all,\n        subject: \"precipitation\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.weather[0].icon,\n        subject: \"icon\"\n    }\n);\n\nvar k = Math.log(msg.payload.main.humidity/100) + (17.62 * msg.payload.main.temp) / (243.12 + msg.payload.main.temp);\nvar dewpoint = 243.12 * k / (17.62 - k);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: dewpoint,\n        subject: \"dewpoint\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        date: msg.payload.date,\n        payload: new Date(msg.payload.date).toTimeString().substring(0,5),\n        subject: \"time\"\n    }\n);",
         "outputs": 1,
         "noerr": 0,
         "x": 1340,
@@ -282,160 +205,6 @@
         "wires": [
             [
                 "3acef89e.4e51e8"
-            ]
-        ]
-    },
-    {
-        "id": "8ff73f31.327b2",
-        "type": "mqtt in",
-        "z": "7f162913.6615d8",
-        "name": "battery/3.3",
-        "topic": "battery/3.3/+",
-        "qos": "0",
-        "broker": "e8b98e4a.36988",
-        "x": 140,
-        "y": 200,
-        "wires": [
-            [
-                "897ccf61.90146",
-                "1c724b07.8ccaf5",
-                "506464c4.c5193c"
-            ]
-        ]
-    },
-    {
-        "id": "897ccf61.90146",
-        "type": "switch",
-        "z": "7f162913.6615d8",
-        "name": "low battery",
-        "property": "payload",
-        "propertyType": "msg",
-        "rules": [
-            {
-                "t": "lt",
-                "v": "2.6",
-                "vt": "num"
-            }
-        ],
-        "checkall": "true",
-        "repair": false,
-        "outputs": 1,
-        "x": 370,
-        "y": 160,
-        "wires": [
-            [
-                "bd20e9c6.827fb8"
-            ]
-        ]
-    },
-    {
-        "id": "6f00e0cd.ca93e",
-        "type": "http request",
-        "z": "7f162913.6615d8",
-        "name": "",
-        "method": "POST",
-        "ret": "txt",
-        "url": "https://maker.ifttt.com/trigger/low_battery/with/key/c4-fhVHoamvYA3XXsTtMcNPp-H2755vlzHHhFxbnvxe",
-        "tls": "",
-        "x": 850,
-        "y": 200,
-        "wires": [
-            [
-                "ba7b103.bf362f"
-            ]
-        ]
-    },
-    {
-        "id": "ba7b103.bf362f",
-        "type": "debug",
-        "z": "7f162913.6615d8",
-        "name": "",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "true",
-        "x": 1030,
-        "y": 120,
-        "wires": []
-    },
-    {
-        "id": "bd20e9c6.827fb8",
-        "type": "function",
-        "z": "7f162913.6615d8",
-        "name": "Add details to body",
-        "func": "msg.payload = {\"value1\":msg.topic}\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "x": 630,
-        "y": 200,
-        "wires": [
-            [
-                "6f00e0cd.ca93e"
-            ]
-        ]
-    },
-    {
-        "id": "1c724b07.8ccaf5",
-        "type": "trigger",
-        "z": "7f162913.6615d8",
-        "op1": "1",
-        "op2": "0",
-        "op1type": "str",
-        "op2type": "str",
-        "duration": "25",
-        "extend": true,
-        "units": "min",
-        "reset": "",
-        "bytopic": "topic",
-        "name": "Check heartbeat",
-        "x": 360,
-        "y": 220,
-        "wires": [
-            [
-                "bd20e9c6.827fb8"
-            ]
-        ]
-    },
-    {
-        "id": "5cabf8e1.08b0b8",
-        "type": "mqtt out",
-        "z": "7f162913.6615d8",
-        "name": "",
-        "topic": "",
-        "qos": "0",
-        "retain": "true",
-        "broker": "e8b98e4a.36988",
-        "x": 590,
-        "y": 300,
-        "wires": []
-    },
-    {
-        "id": "506464c4.c5193c",
-        "type": "change",
-        "z": "7f162913.6615d8",
-        "name": "",
-        "rules": [
-            {
-                "t": "change",
-                "p": "topic",
-                "pt": "msg",
-                "from": "3.3",
-                "fromt": "str",
-                "to": "levels",
-                "tot": "str"
-            }
-        ],
-        "action": "",
-        "property": "",
-        "from": "",
-        "to": "",
-        "reg": false,
-        "x": 370,
-        "y": 300,
-        "wires": [
-            [
-                "5cabf8e1.08b0b8"
             ]
         ]
     },
@@ -498,5 +267,27 @@
                 "13aa1df9.93a7a2"
             ]
         ]
+    },
+    {
+        "id": "e8b98e4a.36988",
+        "type": "mqtt-broker",
+        "z": "",
+        "name": "mqtt",
+        "broker": "http://docker-master-1",
+        "port": "1883",
+        "clientid": "node-red",
+        "usetls": false,
+        "compatmode": false,
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
     }
 ]
