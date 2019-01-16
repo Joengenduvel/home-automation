@@ -55,8 +55,8 @@ matrix:
       - arduino --install-library "Adafruit Unified Sensor"
       - arduino --install-library "DHT sensor library"
       - arduino --install-library "PubSubClient"
+      - ln -s $PWD/embeded/dummy-arduino-secrets.h $PWD/embeded/environment-monitor/arduino-secrets.h
     script:
-      - ln -s $PWD/embeded/environment-monitor/arduino-secrets.h $PWD/embeded/dummy-arduino-secrets.h
       - arduino --verify --board esp8266:esp8266:nodemcu $PWD/embeded/environment-monitor/environment-monitor.ino
 #      - arduino --verify --board esp8266:esp8266:nodemcu $PWD/embeded/large-e-paper-display/large-e-paper-display.ino
 #      - arduino --verify --board esp8266:esp8266:nodemcu $PWD/embeded/large-epaper-display/large-epaper-display.ino
