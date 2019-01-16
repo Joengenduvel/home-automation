@@ -48,7 +48,6 @@ matrix:
     install:
     #  - ln -s $PWD /usr/local/share/arduino/libraries/Adafruit_FONA
       - arduino --pref "boardsmanager.additional.urls=http://arduino.esp8266.com/stable/package_esp8266com_index.json,https://dl.espressif.com/dl/package_esp32_index.json" --save-prefs
-      - arduino --pref "compiler.warning_level=all" --save-prefs
       - arduino --install-boards esp8266:esp8266
       - arduino --install-library "Adafruit GFX Library"
       - arduino --install-library "Adafruit SSD1306 Wemos Mini OLED"
@@ -60,7 +59,7 @@ matrix:
       - cat $PWD/arduino_secrets.h
       - cat $PWD/embeded/environment-monitor/arduino_secrets.h
     script:
-      - arduino --verify --board esp8266:esp8266:nodemcu $PWD/embeded/environment-monitor/environment-monitor.ino
+      - arduino --verify --verbose-build --board esp8266:esp8266:nodemcu $PWD/embeded/environment-monitor/environment-monitor.ino
 #      - arduino --verify --board esp8266:esp8266:nodemcu $PWD/embeded/large-e-paper-display/large-e-paper-display.ino
 #      - arduino --verify --board esp8266:esp8266:nodemcu $PWD/embeded/large-epaper-display/large-epaper-display.ino
 #      - arduino --verify --board esp8266:esp8266:nodemcu $PWD/embeded/micro-display/micro-display.ino
