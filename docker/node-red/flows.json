@@ -62,9 +62,7 @@
         "x": 800,
         "y": 300,
         "wires": [
-            [
-                "13aa1df9.93a7a2"
-            ]
+            []
         ]
     },
     {
@@ -150,33 +148,6 @@
         ]
     },
     {
-        "id": "d0ae6dd8.fd76b",
-        "type": "change",
-        "z": "58a0e99e.130738",
-        "name": "extract list",
-        "rules": [
-            {
-                "t": "set",
-                "p": "payload",
-                "pt": "msg",
-                "to": "payload.list",
-                "tot": "msg"
-            }
-        ],
-        "action": "",
-        "property": "",
-        "from": "",
-        "to": "",
-        "reg": false,
-        "x": 780,
-        "y": 380,
-        "wires": [
-            [
-                "13aa1df9.93a7a2"
-            ]
-        ]
-    },
-    {
         "id": "13aa1df9.93a7a2",
         "type": "function",
         "z": "58a0e99e.130738",
@@ -197,7 +168,7 @@
         "type": "function",
         "z": "58a0e99e.130738",
         "name": "extract values",
-        "func": "node.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.main.temp,\n        subject: \"temperature\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.main.humidity,\n        subject: \"humidity\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.clouds.all,\n        subject: \"precipitation\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.weather[0].icon,\n        subject: \"icon\"\n    }\n);\n\nvar k = Math.log(msg.payload.main.humidity/100) + (17.62 * msg.payload.main.temp) / (243.12 + msg.payload.main.temp);\nvar dewpoint = 243.12 * k / (17.62 - k);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: dewpoint,\n        subject: \"dewpoint\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        date: msg.payload.date,\n        payload: new Date(msg.payload.date).toTimeString().substring(0,5),\n        subject: \"time\"\n    }\n);",
+        "func": "node.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.main.temp,\n        subject: \"temperature\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.main.humidity,\n        subject: \"humidity\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload:  msg.payload.clouds.all,\n        subject: \"precipitation\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: msg.payload.weather[0].icon,\n        subject: \"icon\"\n    }\n);\n\nvar k = Math.log(msg.payload.main.humidity/100) + (17.62 * msg.payload.main.temp) / (243.12 + msg.payload.main.temp);\nvar dewpoint = 243.12 * k / (17.62 - k);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        payload: dewpoint,\n        subject: \"dewpoint\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        date: msg.payload.date,\n        payload: new Date(msg.payload.date).toTimeString().substring(0,5),\n        subject: \"time\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        date: msg.payload.date,\n        payload: msg.payload.wind.speed,\n        subject: \"windSpeed\"\n    }\n);\n\nnode.send(\n    {\n        timestamp: msg.payload.dt,\n        deltaHours: msg.payload.deltaHours,\n        date: msg.payload.date,\n        payload: msg.payload.wind.deg,\n        subject: \"windDirection\"\n    }\n);",
         "outputs": 1,
         "noerr": 0,
         "x": 1340,
@@ -250,7 +221,8 @@
         "y": 580,
         "wires": [
             [
-                "18045662.60ed0a"
+                "18045662.60ed0a",
+                "df65bbe2.6a3e08"
             ]
         ]
     },
@@ -468,5 +440,19 @@
                 "ba7b103.bf362f"
             ]
         ]
+    },
+    {
+        "id": "df65bbe2.6a3e08",
+        "type": "debug",
+        "z": "58a0e99e.130738",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "x": 780,
+        "y": 680,
+        "wires": []
     }
 ]
