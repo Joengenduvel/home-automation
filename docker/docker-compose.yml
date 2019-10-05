@@ -3,4 +3,7 @@ services:
   watchtower:
     image: containrrr/watchtower
     restart: unless-stopped
-    args: --cleanup 
+    environment:
+      WATCHTOWER_CLEANUP: true
+      WATCHTOWER_INCLUDE_STOPPED: true
+      WATCHTOWER_POLL_INTERVAL: 900
