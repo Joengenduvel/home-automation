@@ -1,0 +1,6 @@
+version: "3"
+services:
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    args: --cleanup 
