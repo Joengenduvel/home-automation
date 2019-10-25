@@ -6,6 +6,8 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
+//images generated with: http://javl.github.io/image2cpp/
+//images based on https://openweathermap.org/themes/openweathermap/assets/vendor/owm/img/widgets/09d.png
 #include "sun.h"
 #include "moon.h"
 #include "clouds.h"
@@ -13,6 +15,7 @@
 #include "lightning.h"
 #include "snow.h"
 #include "fog.h"
+#include "compass.h"
 
 
 GxEPD2_3C < GxEPD2_750c, GxEPD2_750c::HEIGHT / 4 > display(GxEPD2_750c(/*CS=15*/ SS, /*DC=4*/ 4, /*RST=5*/ 5, /*BUSY=16*/ 16));
@@ -37,11 +40,15 @@ char translatedOpenWeatherIdsNight[] = {moon, moon | cloud, moon | cloud, moon |
 
 char icons[] = {fog, fog, fog, fog, fog, fog, fog, fog, fog};
 float temperatures[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+int windSpeeds[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+int windDirections[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+int precipitations[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 String times[] = {"03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00", "00:00", "03:00"};
 
-const int sleepTime = 1 * 60 * 1e6; //1 minute
-unsigned long messageReceivedWaitTime = 2000; //1 s
+const int sleepTime = 10 * 60 * 1000; //10 minutes
+unsigned long messageReceivedWaitTime = 60*1000; //1 minute
 unsigned long lastUpdateMillis = messageReceivedWaitTime;
+unsigned long lastScreenUpdate = 0;
 bool receivedData = false;
 
 const char* ssid = SECRET_SSID;
@@ -57,9 +64,10 @@ PubSubClient client(espClient);
 void setup() {
   Serial.begin(115200);
   connectionId = String("display: " + String(ESP.getChipId()));
-  
+
   client.setServer(mqttServer, mqttPort);
   client.setCallback(callback);
+  lastScreenUpdate = millis() - (sleepTime * 2); //first time, draw imediate
 }
 
 void reconnect() {
@@ -80,14 +88,17 @@ void reconnect() {
 
       client.subscribe("weather/actual/temperature");
       client.subscribe("weather/actual/icon");
-      //      client.subscribe("weather/actual/datetime");
+      //client.subscribe("weather/actual/windSpeed");
+      client.subscribe("weather/actual/windDirection");
+      client.subscribe("weather/actual/precipitation");
+
       client.subscribe("weather/prediction/+/icon");
       client.subscribe("weather/prediction/+/temperature");
       client.subscribe("weather/prediction/+/time");
-      //client.subscribe("weather/now");
-      //client.subscribe("weather/forecasts");
+      //client.subscribe("weather/prediction/+/precipitation");
+      
       Serial.println("subscribed");
-  client.loop();
+      client.loop();
 
     }
   }
@@ -97,40 +108,96 @@ void loop() {
   if (!client.connected()) {
     reconnect();
   }
+  //waiting for all data to arrive.
   if ((unsigned long)(millis() - lastUpdateMillis) >= messageReceivedWaitTime && receivedData) {
     receivedData = false;
-    client.disconnect();
-    Serial.println("updating display");
-    display.init(115200);
-    display.setRotation(0);
-    display.setFullWindow();
-    display.firstPage();
-    display.drawPaged(updateScreenCallback, 0);
+    Serial.println("Data complete");
+    //only update the screen from time to time
+    if ((unsigned long)(millis() - lastScreenUpdate) >= sleepTime) {
+      lastScreenUpdate = millis();
+      Serial.println("updating display");
+      display.init(115200);
+      display.setRotation(0);
+      display.setFullWindow();
+      display.firstPage();
+      display.drawPaged(updateScreenCallback, 0);
 
-    Serial.println(client.state());
-    Serial.println("powering off");
-    display.powerOff();
-  delay(5*60*1000);
+      Serial.println(client.state());
+      Serial.println("powering off");
+      display.powerOff();
+      delay(500);
+    }
   }
   client.loop();
 }
 
 void updateScreenCallback(const void*)
 {
-      display.fillScreen(GxEPD_WHITE);
-      printTemperature(margin, margin, temperatures[0], true);
-      drawWeatherIcon(400, 0, icons[0], true);
-      // internal temp
-      //    PrintTemperature(margin, margin + 90, temperatures[0], true);
-      for (int i = 1; i < 9; i++) {
-        int x = margin + (imageSize * (i - 1));
-        int y = 250;
-        printTemperature(x + margin, y - 10, temperatures[i], false);
-        drawWeatherIcon(x, y, icons[i], false);
-        printTime(x + margin, y + imageSize + margin, times[i], false);
-      }
-    Serial.println(client.state());
+  display.fillScreen(GxEPD_WHITE);
+  // internal
+  //printTemperature(margin, margin*2, -22, true);
+  // external
+  printTemperature(margin, margin * 2 + 100, temperatures[0], true);
+  drawCompass(230, margin, windSpeeds[0], windDirections[0]);
+  drawWeatherIcon(440, 0, icons[0], true);
+  if (precipitations[0] > 0) {
+    display.setTextColor(GxEPD_BLACK);
+    display.setTextSize(3);
+    display.setCursor(500, imageSizeXL);
+    //display.print(precipitations[0]);
+    //display.print("mm");
+  }
+  for (int i = 1; i < 9; i++) {
+    int x = margin + (imageSize * (i - 1));
+    int y = 280;
+    printTemperature(x + margin * 2, y - 5, temperatures[i], false);
+    drawWeatherIcon(x, y, icons[i], false);
+    printTime(x + margin, y + imageSize + margin, times[i], false);
+  }
   client.loop();
+}
+
+void drawCompass(uint16_t x, uint16_t y, int windSpeed, int windDirection) {
+  
+    Serial.print("dir: ");
+    Serial.println((((windDirection+180)%360) + 22) / 45);
+    Serial.print("speed: ");
+    Serial.println(windSpeed);
+    
+  switch ((((windDirection+180)%360) + 22) / 45) {
+    case 7:
+      display.drawBitmap(x, y,  compassImage7, 100, 100 , GxEPD_BLACK);
+      break;
+    case 6:
+      display.drawBitmap(x, y,  compassImage6, 100, 100 , GxEPD_BLACK);
+      break;
+    case 5:
+      display.drawBitmap(x, y,  compassImage5, 100, 100 , GxEPD_BLACK);
+      break;
+    case 4:
+      display.drawBitmap(x, y,  compassImage4, 100, 100 , GxEPD_BLACK);
+      break;
+    case 3:
+      display.drawBitmap(x, y,  compassImage3, 100, 100 , GxEPD_BLACK);
+      break;
+    case 2:
+      display.drawBitmap(x, y,  compassImage2, 100, 100 , GxEPD_BLACK);
+      break;
+    case 1:
+      display.drawBitmap(x, y,  compassImage1, 100, 100 , GxEPD_BLACK);
+      break;
+    case 0:
+    default:
+      display.drawBitmap(x, y,  compassImage0, 100, 100 , GxEPD_BLACK);
+  }
+  display.setTextColor(GxEPD_BLACK);
+  display.setTextSize(3);
+  display.setCursor(x + 30, y + 110);
+  //display.println(windSpeed);
+}
+
+void rotateBitmap(const uint8_t * bitmap, uint8_t width, uint8_t height, float angle) {
+
 }
 
 void drawWeatherIcon(uint16_t x, uint16_t y, char conditions, bool isXL) {
@@ -203,7 +270,16 @@ void callback(char* topicArray, byte * payloadArray, unsigned int length) {
       temperatures[index] = payload.toFloat();
     }
     if (topic.endsWith("time")) {
-      times[index] = payload.substring(0,5);
+      times[index] = payload.substring(0, 5);
+    }
+    if (topic.endsWith("Direction")) {
+      windDirections[index] = payload.toInt();
+    }
+    if (topic.endsWith("Speed")) {
+      windSpeeds[index] = payload.toFloat();
+    }
+    if (topic.endsWith("precipitation")) {
+      precipitations[index] = payload.toInt();
     }
     receivedData = true;
   }
@@ -215,7 +291,7 @@ void printTemperature(uint16_t x, uint16_t y, float temp, bool isXL) {
   display.setTextColor(GxEPD_BLACK);
   display.setTextSize(isXL ? 9 : 2);
   display.setCursor(x, y);
-  display.println(temp);
+  display.println(round(temp));
 }
 
 void printTime(uint16_t x, uint16_t y, String timestamp, bool isXL) {
