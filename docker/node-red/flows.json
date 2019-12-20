@@ -18,7 +18,7 @@
         "type": "mqtt-broker",
         "z": "",
         "name": "mqtt",
-        "broker": "http://docker-master-1",
+        "broker": "http://mqtt",
         "port": "1883",
         "clientid": "node-red",
         "usetls": false,
