@@ -20,5 +20,5 @@ services:
     restart: unless-stopped
     ports:
       - "80:1880"
-    depends-on:
+    depends_on:
       - "mqtt"
