@@ -1,68 +1,21 @@
 matrix:
   include:
-  - sudo: required
+  - name: MQTT
     services:
     - docker
     language: bash
     before_script:
     - cd docker/mqtt
     script:
-    - docker run --rm --privileged multiarch/qemu-user-static:register --reset
-    - docker build -t $DOCKER_USERNAME/mqtt-armhf .
+    - docker build -t $DOCKER_USERNAME/mqtt .
     - |
       if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
         echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-        #TAG=$(grep "ENV MYSQL_VERSION" Dockerfile | awk 'NF>1{print $NF}')
         TAG='latest'
-        docker tag $DOCKER_USERNAME/mqtt-armhf $DOCKER_USERNAME/mqtt-armhf:$TAG
-        docker push $DOCKER_USERNAME/mqtt-armhf:$TAG
-        docker push $DOCKER_USERNAME/mqtt-armhf
+        docker tag $DOCKER_USERNAME/mqtt-armhf $DOCKER_USERNAME/mqtt:$TAG
+        docker push $DOCKER_USERNAME/mqtt:$TAG
+        docker push $DOCKER_USERNAME/mqtt
       fi
-  - sudo: required
-    services:
-    - docker
-    language: bash
-    before_script:
-    - cd docker/node-red
-    script:
-    - docker run --rm --privileged multiarch/qemu-user-static:register --reset
-    - docker build -t $DOCKER_USERNAME/node-red-armhf .
-    - |
-      if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
-        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-        #TAG=$(grep "ENV MYSQL_VERSION" Dockerfile | awk 'NF>1{print $NF}')
-        TAG='latest'
-        docker tag $DOCKER_USERNAME/node-red-armhf $DOCKER_USERNAME/node-red-armhf:$TAG
-        docker push $DOCKER_USERNAME/node-red-armhf:$TAG
-        docker push $DOCKER_USERNAME/node-red-armhf
-      fi
-  - language: c
-    before_install:
-      - "/sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_1.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :1 -ac -screen 0 1280x1024x16"
-      - sleep 3
-      - export DISPLAY=:1.0
-      - wget https://downloads.arduino.cc/arduino-1.8.7-linux64.tar.xz
-      - tar xf arduino-1.8.7-linux64.tar.xz
-      - sudo mv arduino-1.8.7 /usr/local/share/arduino
-      - sudo ln -s /usr/local/share/arduino/arduino /usr/local/bin/arduino
-    install:
-    #  - ln -s $PWD /usr/local/share/arduino/libraries/Adafruit_FONA
-      - arduino --pref "boardsmanager.additional.urls=http://arduino.esp8266.com/stable/package_esp8266com_index.json,https://dl.espressif.com/dl/package_esp32_index.json" --save-prefs
-      - arduino --install-boards esp8266:esp8266
-      - arduino --install-library "Adafruit GFX Library"
-      - arduino --install-library "Adafruit SSD1306 Wemos Mini OLED"
-      - arduino --install-library "Adafruit Unified Sensor"
-      - arduino --install-library "DHT sensor library"
-      - arduino --install-library "PubSubClient"
-      - ln -s $PWD/embeded/dummy-arduino-secrets.h $PWD/arduino_secrets.h
-      - ln -s $PWD/embeded/dummy-arduino-secrets.h $PWD/embeded/environment-monitor/arduino_secrets.h
-      - cat $PWD/arduino_secrets.h
-      - cat $PWD/embeded/environment-monitor/arduino_secrets.h
-    script:
-      - arduino --verify --verbose-build --board esp8266:esp8266:nodemcu $PWD/embeded/environment-monitor/environment-monitor.ino
-#      - arduino --verify --board esp8266:esp8266:nodemcu $PWD/embeded/large-e-paper-display/large-e-paper-display.ino
-#      - arduino --verify --board esp8266:esp8266:nodemcu $PWD/embeded/large-epaper-display/large-epaper-display.ino
-#      - arduino --verify --board esp8266:esp8266:nodemcu $PWD/embeded/micro-display/micro-display.ino
 notifications:
   slack:
     secure: OS2yvAb7C8b2TnAw0jofHPuAIBaCn9HB1lRUv0KDGPI6zp9sX09UfD43VVy991Ze/B+VShKwdibGSzW1O935vDkgKaT+E/ap+EML49xjEpEv6YDlYoxsFbciZTp+Ivk9g224t+JDihCrtTp9BL+Loe/LeDN/oBd5Tk7fw6bOWXN3UqnlwqoJBSxX/Hre5JetpDgj/9QRoLQPK60iYs7Lwo3+iyhLNFsEJeCO14wMB8puuLT78UqPPitRULd8YjfxuDGRjo3C8Jv3wd/KjjoicQsNo8xXw9a81Fm+nbODt2l3EMcIx9w88ZU6PqP3Bkvz5RuLsREqzZa0xHJH7yU1h4qO39VtBkAVOQvJLiR31Pb1+DkgdRiiNQi+6eQTlQOMubARBwbUro9sWY4B0RUJyEKqhMSqqvF1YIJ+Aht/d5UafvJ6BGAVJ1mthvolV3lOwULBECpMC4soPb7eOCiNFhYJDygJDP0nJVZQwhklJeCCeFoq4dBHZi+eGUg+yyc11dYNR4dJVFl1/7yF7TsFLNf37dB1DMN/lNn9Ti4+G8Xq4ILmDF0uLxmxRw9P7ouztD+OGwgqqmnVhL2MAXjEQaOFYpqalyBEv2qHj0efDnT/te8D/jLfp0iB/LUTzOFjDingqdFn6U+RtCOXfL9ksC08jp//DYnB1UNrzTTQIDk=
