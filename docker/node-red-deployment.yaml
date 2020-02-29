@@ -15,7 +15,7 @@ spec:
         app: node-red
     spec:
       containers:
-      - image: nodered/node-red
+      - image: joengenduvel/node-red
         name: node-red
         ports:
         - containerPort: 1880

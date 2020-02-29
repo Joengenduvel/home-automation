@@ -1,3 +1,3 @@
-FROM nodered/node-red:1.0.1-12-minimal-arm32v7
+FROM nodered/node-red:latest-minimal
 #ADD flows.json /data/lib/flows/
 ADD flows.json /data/
