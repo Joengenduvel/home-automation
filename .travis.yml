@@ -1,20 +1,20 @@
 matrix:
   include:
-  - name: MQTT
+  - name: node-red
     services:
     - docker
     language: bash
     before_script:
-    - cd docker/mqtt
+    - cd docker/node-red
     script:
-    - docker build -t $DOCKER_USERNAME/mqtt .
+    - docker build -t $DOCKER_USERNAME/node-red .
     - |
       if [ "$TRAVIS_BRANCH" == "master" ] && [ "$TRAVIS_PULL_REQUEST" == "false" ]; then
         echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
         TAG='latest'
-        docker tag $DOCKER_USERNAME/mqtt-armhf $DOCKER_USERNAME/mqtt:$TAG
-        docker push $DOCKER_USERNAME/mqtt:$TAG
-        docker push $DOCKER_USERNAME/mqtt
+        docker tag $DOCKER_USERNAME/mqtt-armhf $DOCKER_USERNAME/node-red:$TAG
+        docker push $DOCKER_USERNAME/node-red:$TAG
+        docker push $DOCKER_USERNAME/node-red
       fi
 notifications:
   slack:
