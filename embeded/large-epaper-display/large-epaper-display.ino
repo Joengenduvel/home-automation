@@ -42,11 +42,11 @@ char icons[] = {fog, fog, fog, fog, fog, fog, fog, fog, fog};
 float temperatures[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 int windSpeeds[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 int windDirections[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-int precipitations[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+float precipitations[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 String times[] = {"03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00", "00:00", "03:00"};
 
 const int sleepTime = 10 * 60 * 1000; //10 minutes
-unsigned long messageReceivedWaitTime = 60*1000; //1 minute
+unsigned long messageReceivedWaitTime = 60 * 1000; //1 minute
 unsigned long lastUpdateMillis = messageReceivedWaitTime;
 unsigned long lastScreenUpdate = 0;
 bool receivedData = false;
@@ -54,7 +54,7 @@ bool receivedData = false;
 const char* ssid = SECRET_SSID;
 const char* password =  SECRET_PASSWD;
 
-const char* mqttServer = "docker-master-1";
+const char* mqttServer = "192.168.86.20";
 const int mqttPort = 1883;
 String connectionId = "";
 
@@ -88,15 +88,15 @@ void reconnect() {
 
       client.subscribe("weather/actual/temperature");
       client.subscribe("weather/actual/icon");
-      //client.subscribe("weather/actual/windSpeed");
+      client.subscribe("weather/actual/windSpeed");
       client.subscribe("weather/actual/windDirection");
       client.subscribe("weather/actual/precipitation");
 
       client.subscribe("weather/prediction/+/icon");
       client.subscribe("weather/prediction/+/temperature");
       client.subscribe("weather/prediction/+/time");
-      //client.subscribe("weather/prediction/+/precipitation");
-      
+      client.subscribe("weather/prediction/+/precipitation");
+
       Serial.println("subscribed");
       client.loop();
 
@@ -138,33 +138,27 @@ void updateScreenCallback(const void*)
   //printTemperature(margin, margin*2, -22, true);
   // external
   printTemperature(margin, margin * 2 + 100, temperatures[0], true);
-  drawCompass(230, margin, windSpeeds[0], windDirections[0]);
+  drawCompass(margin + 230, margin, windSpeeds[0], windDirections[0]);
   drawWeatherIcon(440, 0, icons[0], true);
   if (precipitations[0] > 0) {
-    display.setTextColor(GxEPD_BLACK);
-    display.setTextSize(3);
-    display.setCursor(500, imageSizeXL);
-    //display.print(precipitations[0]);
-    //display.print("mm");
+    printPercipitation(500,imageSizeXL,precipitations[0], true);
   }
   for (int i = 1; i < 9; i++) {
     int x = margin + (imageSize * (i - 1));
     int y = 280;
     printTemperature(x + margin * 2, y - 5, temperatures[i], false);
     drawWeatherIcon(x, y, icons[i], false);
+    if (icons[i] & rain || icons[i] & snow) {
+      printPercipitation(x, y + imageSize, precipitations[i], false);
+    }
     printTime(x + margin, y + imageSize + margin, times[i], false);
   }
   client.loop();
 }
 
 void drawCompass(uint16_t x, uint16_t y, int windSpeed, int windDirection) {
-  
-    Serial.print("dir: ");
-    Serial.println((((windDirection+180)%360) + 22) / 45);
-    Serial.print("speed: ");
-    Serial.println(windSpeed);
-    
-  switch ((((windDirection+180)%360) + 22) / 45) {
+
+  switch ((((windDirection + 180) % 360) + 22) / 45) {
     case 7:
       display.drawBitmap(x, y,  compassImage7, 100, 100 , GxEPD_BLACK);
       break;
@@ -193,7 +187,10 @@ void drawCompass(uint16_t x, uint16_t y, int windSpeed, int windDirection) {
   display.setTextColor(GxEPD_BLACK);
   display.setTextSize(3);
   display.setCursor(x + 30, y + 110);
-  //display.println(windSpeed);
+  display.print(windSpeed);
+  display.print(" m/s");
+  Serial.print("speed: ");
+  Serial.println(windSpeed);
 }
 
 void rotateBitmap(const uint8_t * bitmap, uint8_t width, uint8_t height, float angle) {
@@ -244,11 +241,7 @@ char translateOpenWeatherId(String id) {
 }
 
 void callback(char* topicArray, byte * payloadArray, unsigned int length) {
-  byte* p = (byte*)malloc(length);
-  memcpy(p, payloadArray, length);
-  String payload = String((char*)p);
-  free(p);
-  payloadArray = {};
+  String payload = toString(payloadArray,  length);
   String topic = String(topicArray);
 
   int index = 0;
@@ -279,7 +272,7 @@ void callback(char* topicArray, byte * payloadArray, unsigned int length) {
       windSpeeds[index] = payload.toFloat();
     }
     if (topic.endsWith("precipitation")) {
-      precipitations[index] = payload.toInt();
+      precipitations[index] = payload.toFloat();
     }
     receivedData = true;
   }
@@ -291,7 +284,7 @@ void printTemperature(uint16_t x, uint16_t y, float temp, bool isXL) {
   display.setTextColor(GxEPD_BLACK);
   display.setTextSize(isXL ? 9 : 2);
   display.setCursor(x, y);
-  display.println(round(temp));
+  display.println(round(temp),1);
 }
 
 void printTime(uint16_t x, uint16_t y, String timestamp, bool isXL) {
@@ -301,3 +294,20 @@ void printTime(uint16_t x, uint16_t y, String timestamp, bool isXL) {
   display.println(timestamp);
 }
 
+void printPercipitation(uint16_t x, uint16_t y, int percipitation, bool isXL) {
+  display.setTextColor(GxEPD_BLACK);
+  display.setTextSize(isXL ? 3 : 1);
+  display.setCursor(x, y);
+  display.print(percipitation,1);
+  display.print(" mm");
+}
+
+String toString(byte * payloadArray, unsigned int length) {
+  char buff_p[length];
+  for (int i = 0; i < length; i++)
+  {
+    buff_p[i] = (char)payloadArray[i];
+  }
+  buff_p[length] = '\0';
+  return String(buff_p);
+}
