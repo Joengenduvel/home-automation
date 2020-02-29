@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mqtt
+  name: mqtt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mqtt
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: mqtt
+    spec:
+      containers:
+      - image: eclipse-mosquitto
+        name: mqtt
+        ports:
+        - containerPort: 1883
+        - containerPort: 9001
+        resources: {}
+      restartPolicy: Always
+status: {}
