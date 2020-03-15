@@ -1,3 +1,6 @@
+#include <DHT.h>
+#include <DHT_U.h>
+
 #define ENABLE_GxEPD2_GFX 0
 
 #include "arduino_secrets.h"
@@ -17,8 +20,7 @@
 #include "fog.h"
 #include "compass.h"
 
-
-GxEPD2_3C < GxEPD2_750c, GxEPD2_750c::HEIGHT / 4 > display(GxEPD2_750c(/*CS=15*/ SS, /*DC=4*/ 4, /*RST=5*/ 5, /*BUSY=16*/ 16));
+GxEPD2_3C < GxEPD2_750c, GxEPD2_750c::HEIGHT / 2 > display(GxEPD2_750c(/*CS=15*/ SS, /*DC=4*/ 4, /*RST=5*/ 5, /*BUSY=16*/ 16));
 
 #define imageSize 75
 #define imageSizeXL 200
@@ -46,10 +48,13 @@ float precipitations[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 String times[] = {"03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00", "00:00", "03:00"};
 
 const int sleepTime = 10 * 60 * 1000; //10 minutes
-unsigned long messageReceivedWaitTime = 60 * 1000; //1 minute
+unsigned long messageReceivedWaitTime = 1000; //1 second
 unsigned long lastUpdateMillis = messageReceivedWaitTime;
-unsigned long lastScreenUpdate = 0;
-bool receivedData = false;
+String updatedAt = times[0];
+
+enum states {CONNECT, SUBSCRIBE, RECEIVE_DATA, UPDATE_DISPLAY, ERROR};
+uint8_t state = ERROR;
+String errorMessage = "";
 
 const char* ssid = SECRET_SSID;
 const char* password =  SECRET_PASSWD;
@@ -61,13 +66,74 @@ String connectionId = "";
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+//Constants
+#define DHTPIN 0     // what pin we're connected to
+#define DHTTYPE DHT22   // DHT 22  (AM2302)
+DHT dht(DHTPIN, DHTTYPE); //// Initialize DHT sensor for normal 16mhz Arduino
+float internalTemp = 0;
+
+
 void setup() {
   Serial.begin(115200);
   connectionId = String("display: " + String(ESP.getChipId()));
 
+  WiFi.mode( WIFI_STA );
   client.setServer(mqttServer, mqttPort);
   client.setCallback(callback);
-  lastScreenUpdate = millis() - (sleepTime * 2); //first time, draw imediate
+  dht.begin();
+  
+  state = CONNECT;
+}
+
+void loop() {
+  client.loop();
+  switch (state) {
+    case CONNECT:
+      reconnect();
+      state = SUBSCRIBE;
+      break;
+    case SUBSCRIBE:
+      if (!client.connected()) {
+        state = CONNECT;
+      } else {
+        subscribe();
+        state = RECEIVE_DATA;
+      }
+      break;
+    case RECEIVE_DATA:
+      if (!client.connected()) {
+        state = CONNECT;
+      } else {
+        if ((unsigned long)(millis() - lastUpdateMillis) >= messageReceivedWaitTime && updatedAt != times[0]) {
+
+          Serial.println("data complete");
+
+
+          internalTemp = dht.readTemperature();
+          Serial.print("internal temp");
+          Serial.println(internalTemp);
+
+          client.disconnect();
+          state = UPDATE_DISPLAY;
+
+        } else {
+          //still waiting
+          delay(100);
+        }
+      }
+
+      break;
+    case UPDATE_DISPLAY:
+      Serial.println("updating display");
+      updatedAt = times[0];
+      updateDisplay(displayWeatherCallback);
+      state = RECEIVE_DATA;
+      break;
+    default:
+      updateDisplay(displayErrorCallback);
+      gotoSleep();
+      break;
+  }
 }
 
 void reconnect() {
@@ -82,66 +148,68 @@ void reconnect() {
 
   while (!client.connected()) {
     Serial.print(".");
-
-    if (client.connect(connectionId.c_str())) {
-      Serial.println("subscribing");
-
-      client.subscribe("weather/actual/temperature");
-      client.subscribe("weather/actual/icon");
-      client.subscribe("weather/actual/windSpeed");
-      client.subscribe("weather/actual/windDirection");
-      client.subscribe("weather/actual/precipitation");
-
-      client.subscribe("weather/prediction/+/icon");
-      client.subscribe("weather/prediction/+/temperature");
-      client.subscribe("weather/prediction/+/time");
-      client.subscribe("weather/prediction/+/precipitation");
-
-      Serial.println("subscribed");
-      client.loop();
-
-    }
+    client.connect(connectionId.c_str());
   }
 }
 
-void loop() {
-  if (!client.connected()) {
-    reconnect();
-  }
-  //waiting for all data to arrive.
-  if ((unsigned long)(millis() - lastUpdateMillis) >= messageReceivedWaitTime && receivedData) {
-    receivedData = false;
-    Serial.println("Data complete");
-    //only update the screen from time to time
-    if ((unsigned long)(millis() - lastScreenUpdate) >= sleepTime) {
-      lastScreenUpdate = millis();
-      Serial.println("updating display");
-      display.init(115200);
-      display.setRotation(0);
-      display.setFullWindow();
-      display.firstPage();
-      display.drawPaged(updateScreenCallback, 0);
+void subscribe() {
+  Serial.println("subscribing");
 
-      Serial.println(client.state());
-      Serial.println("powering off");
-      display.powerOff();
-      delay(500);
-    }
-  }
-  client.loop();
+  client.subscribe("weather/actual/temperature");
+  client.subscribe("weather/actual/icon");
+  client.subscribe("weather/actual/windSpeed");
+  client.subscribe("weather/actual/windDirection");
+  client.subscribe("weather/actual/precipitation");
+  client.subscribe("weather/actual/time");
+
+  client.subscribe("weather/prediction/+/icon");
+  client.subscribe("weather/prediction/+/temperature");
+  client.subscribe("weather/prediction/+/time");
+  client.subscribe("weather/prediction/+/precipitation");
+
+  Serial.println("subscribed");
 }
 
-void updateScreenCallback(const void*)
+void updateDisplay(void (*drawCallback)(const void*)) {
+  Serial.println("updating display");
+  display.init(115200);
+  display.setRotation(0);
+  display.setFullWindow();
+  display.firstPage();
+  display.drawPaged(drawCallback, 0);
+  display.powerOff();
+  Serial.println("powering display off");
+}
+
+void displayErrorCallback(const void*) {
+  display.fillScreen(GxEPD_WHITE);
+  display.setTextColor(GxEPD_BLACK);
+  display.setTextSize(4);
+  display.setCursor(0, 0);
+  display.println("ERROR");
+}
+
+void displayWeatherCallback(const void*)
 {
   display.fillScreen(GxEPD_WHITE);
-  // internal
-  //printTemperature(margin, margin*2, -22, true);
+  display.setTextColor(GxEPD_BLACK);
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println(times[0]);
+  //internal
+  display.setTextSize(1);
+  display.setCursor(0, margin * 2 -10);
+  display.print("in");
+  printTemperature(margin, margin * 2, internalTemp, true);
   // external
-  printTemperature(margin, margin * 2 + 100, temperatures[0], true);
-  drawCompass(margin + 230, margin, windSpeeds[0], windDirections[0]);
+  display.setTextSize(1);
+  display.setCursor(0, margin * 2 + 110);
+  display.print("out");
+  printTemperature(margin, margin * 2 + 120, temperatures[0], true);
+  drawCompass(margin + 250, margin, windSpeeds[0], windDirections[0]);
   drawWeatherIcon(440, 0, icons[0], true);
   if (precipitations[0] > 0) {
-    printPercipitation(500,imageSizeXL,precipitations[0], true);
+    printPercipitation(500, imageSizeXL, precipitations[0], true);
   }
   for (int i = 1; i < 9; i++) {
     int x = margin + (imageSize * (i - 1));
@@ -149,11 +217,10 @@ void updateScreenCallback(const void*)
     printTemperature(x + margin * 2, y - 5, temperatures[i], false);
     drawWeatherIcon(x, y, icons[i], false);
     if (icons[i] & rain || icons[i] & snow) {
-      printPercipitation(x, y + imageSize, precipitations[i], false);
+      printPercipitation(x + margin * 2, y + imageSize, precipitations[i], false);
     }
     printTime(x + margin, y + imageSize + margin, times[i], false);
   }
-  client.loop();
 }
 
 void drawCompass(uint16_t x, uint16_t y, int windSpeed, int windDirection) {
@@ -188,13 +255,8 @@ void drawCompass(uint16_t x, uint16_t y, int windSpeed, int windDirection) {
   display.setTextSize(3);
   display.setCursor(x + 30, y + 110);
   display.print(windSpeed);
+  display.setTextSize(2);
   display.print(" m/s");
-  Serial.print("speed: ");
-  Serial.println(windSpeed);
-}
-
-void rotateBitmap(const uint8_t * bitmap, uint8_t width, uint8_t height, float angle) {
-
 }
 
 void drawWeatherIcon(uint16_t x, uint16_t y, char conditions, bool isXL) {
@@ -244,6 +306,10 @@ void callback(char* topicArray, byte * payloadArray, unsigned int length) {
   String payload = toString(payloadArray,  length);
   String topic = String(topicArray);
 
+  Serial.print(topic);
+  Serial.print("=");
+  Serial.println(payload);
+
   int index = 0;
   if (topic.startsWith("weather/prediction/")) {
     //calculate the index of the icon
@@ -274,9 +340,7 @@ void callback(char* topicArray, byte * payloadArray, unsigned int length) {
     if (topic.endsWith("precipitation")) {
       precipitations[index] = payload.toFloat();
     }
-    receivedData = true;
   }
-
   lastUpdateMillis = millis();
 }
 
@@ -284,7 +348,7 @@ void printTemperature(uint16_t x, uint16_t y, float temp, bool isXL) {
   display.setTextColor(GxEPD_BLACK);
   display.setTextSize(isXL ? 9 : 2);
   display.setCursor(x, y);
-  display.println(round(temp),1);
+  display.println(temp, 1);
 }
 
 void printTime(uint16_t x, uint16_t y, String timestamp, bool isXL) {
@@ -294,11 +358,11 @@ void printTime(uint16_t x, uint16_t y, String timestamp, bool isXL) {
   display.println(timestamp);
 }
 
-void printPercipitation(uint16_t x, uint16_t y, int percipitation, bool isXL) {
+void printPercipitation(uint16_t x, uint16_t y, float percipitation, bool isXL) {
   display.setTextColor(GxEPD_BLACK);
   display.setTextSize(isXL ? 3 : 1);
   display.setCursor(x, y);
-  display.print(percipitation,1);
+  display.print(percipitation, 2);
   display.print(" mm");
 }
 
@@ -310,4 +374,15 @@ String toString(byte * payloadArray, unsigned int length) {
   }
   buff_p[length] = '\0';
   return String(buff_p);
+}
+void catchError(String message) {
+  state = ERROR;
+  errorMessage = message;
+}
+
+void gotoSleep() {
+  Serial.println("GOING TO SLEEP");
+  WiFi.mode( WIFI_OFF );
+  WiFi.forceSleepBegin();
+  ESP.deepSleep(0);
 }
