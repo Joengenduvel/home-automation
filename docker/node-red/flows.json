@@ -117,7 +117,7 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "repeat": "300",
+        "repeat": "900",
         "crontab": "",
         "once": true,
         "onceDelay": 0.1,
