@@ -23,5 +23,14 @@ spec:
         - containerPort: 1883
         - containerPort: 9001
         resources: {}
+        volumeMounts:
+        - name: config-volume
+          mountPath: /mosquitto/config/
       restartPolicy: Always
+      volumes:
+      - name: config-volume
+        configMap:
+          # Provide the name of the ConfigMap containing the files you want
+          # to add to the container
+          name: mqtt-config
 status: {}
