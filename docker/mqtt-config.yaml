@@ -5,4 +5,5 @@ metadata:
 data:
   mosquitto.conf: |-
 
+    allow_anonymous true
     listener 1883 0.0.0.0
