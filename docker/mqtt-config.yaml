@@ -218,7 +218,7 @@ data:
     # listener 0 /tmp/mosquitto.sock
     #
     # listener port-number [ip address/host name/unix socket path]
-    #listener
+    listener 1883 0.0.0.0
 
     # By default, a listener will attempt to listen on all supported IP protocol
     # versions. If you do not have an IPv4 or IPv6 interface you may wish to
@@ -241,7 +241,7 @@ data:
     # Not available on Windows.
     #
     # Example: bind_interface eth0
-    bind_interface eth0
+    # bind_interface eth0
 
     # When a listener is using the websockets protocol, it is possible to serve
     # http data as well. Set http_dir to a directory which contains the files you
