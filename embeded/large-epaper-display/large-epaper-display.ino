@@ -1,13 +1,24 @@
+#include <ArduinoJson.h>
+
 #include <DHT.h>
 #include <DHT_U.h>
 
+
+#include <TimeLib.h>
+
 #define ENABLE_GxEPD2_GFX 0
 
-#include "arduino_secrets.h"
+#include "arduino-secrets.h"
 #include <GxEPD2_3C.h>
 
 #include <ESP8266WiFi.h>
-#include <PubSubClient.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
+
+String openWeatherMapApiKey = OPENWEATHERMAP_API_KEY;
+String lat = LAT;
+String lon = LON;
+String city = CITY;
 
 //images generated with: http://javl.github.io/image2cpp/
 //images based on https://openweathermap.org/themes/openweathermap/assets/vendor/owm/img/widgets/09d.png
@@ -40,6 +51,8 @@ String openWeatherIds[] = {"01d", "02d", "03d", "04d", "09d", "10d", "11d", "13d
 char translatedOpenWeatherIdsDay[] = {sun, sun | cloud, sun | cloud, sun | cloud | darkCloud, 0, 0, 0, 0, sun | cloud | darkCloud | rain, sun | cloud | rain, sun | cloud | darkCloud | lightning, 0, sun | cloud | darkCloud | snow};
 char translatedOpenWeatherIdsNight[] = {moon, moon | cloud, moon | cloud, moon | cloud | darkCloud, 0, 0, 0, 0, moon | cloud | darkCloud | rain, moon | cloud | rain, moon | cloud | darkCloud | lightning, 0, moon | cloud | darkCloud | snow};
 
+
+float internalTemp = 0;
 char icons[] = {fog, fog, fog, fog, fog, fog, fog, fog, fog};
 float temperatures[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 int windSpeeds[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -49,7 +62,7 @@ String times[] = {"03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00",
 
 const int sleepTime = 10 * 60 * 1000; //10 minutes
 unsigned long messageReceivedWaitTime = 1000; //1 second
-unsigned long lastUpdateMillis = messageReceivedWaitTime;
+unsigned long lastUpdateMillis = 0;
 String updatedAt = times[0];
 
 enum states {CONNECT, SUBSCRIBE, RECEIVE_DATA, UPDATE_DISPLAY, ERROR};
@@ -59,67 +72,48 @@ String errorMessage = "";
 const char* ssid = SECRET_SSID;
 const char* password =  SECRET_PASSWD;
 
-const char* mqttServer = "192.168.86.20";
-const int mqttPort = 1883;
-String connectionId = "";
-
 WiFiClient espClient;
-PubSubClient client(espClient);
 
 //Constants
 #define DHTPIN 0     // what pin we're connected to
 #define DHTTYPE DHT22   // DHT 22  (AM2302)
 DHT dht(DHTPIN, DHTTYPE); //// Initialize DHT sensor for normal 16mhz Arduino
-float internalTemp = 0;
 
 
 void setup() {
   Serial.begin(115200);
-  connectionId = String("display: " + String(ESP.getChipId()));
 
   WiFi.mode( WIFI_STA );
-  client.setServer(mqttServer, mqttPort);
-  client.setCallback(callback);
   dht.begin();
-  
+
   state = CONNECT;
+  Serial.println(ESP.getFreeHeap());
 }
 
 void loop() {
-  client.loop();
   switch (state) {
     case CONNECT:
       reconnect();
-      state = SUBSCRIBE;
-      break;
-    case SUBSCRIBE:
-      if (!client.connected()) {
-        state = CONNECT;
-      } else {
-        subscribe();
-        state = RECEIVE_DATA;
-      }
+      state = RECEIVE_DATA;
       break;
     case RECEIVE_DATA:
-      if (!client.connected()) {
-        state = CONNECT;
+      //TODO check connection
+      if (lastUpdateMillis == 0 ||(unsigned long)(millis() - lastUpdateMillis) >= sleepTime) {
+
+
+        getCurrentWeatherOneCall();
+        getWeatherForecast();
+
+
+        internalTemp = readInternalTemperature();
+        Serial.print("internal temp");
+        Serial.println(internalTemp);
+
+        state = UPDATE_DISPLAY;
+
       } else {
-        if ((unsigned long)(millis() - lastUpdateMillis) >= messageReceivedWaitTime && updatedAt != times[0]) {
-
-          Serial.println("data complete");
-
-
-          internalTemp = dht.readTemperature();
-          Serial.print("internal temp");
-          Serial.println(internalTemp);
-
-          client.disconnect();
-          state = UPDATE_DISPLAY;
-
-        } else {
-          //still waiting
-          delay(100);
-        }
+        //still waiting
+        delay(100);
       }
 
       break;
@@ -145,29 +139,100 @@ void reconnect() {
     }
     Serial.println("Connected");
   }
-
-  while (!client.connected()) {
-    Serial.print(".");
-    client.connect(connectionId.c_str());
-  }
 }
 
-void subscribe() {
-  Serial.println("subscribing");
+void getCurrentWeatherOneCall() {
+  lastUpdateMillis = millis();
+  String serverPath = "http://api.openweathermap.org/data/2.5/onecall?lat=" + lat + "&lon=" + lon + "&exclude=minutely,daily,alerts,hourly&units=metric&appid=" + openWeatherMapApiKey;
 
-  client.subscribe("weather/actual/temperature");
-  client.subscribe("weather/actual/icon");
-  client.subscribe("weather/actual/windSpeed");
-  client.subscribe("weather/actual/windDirection");
-  client.subscribe("weather/actual/precipitation");
-  client.subscribe("weather/actual/time");
+  HTTPClient http;
 
-  client.subscribe("weather/prediction/+/icon");
-  client.subscribe("weather/prediction/+/temperature");
-  client.subscribe("weather/prediction/+/time");
-  client.subscribe("weather/prediction/+/precipitation");
+  http.useHTTP10(true); //Unfortunately, by using the underlying Stream, we bypass the code that handles chunked transfer encoding, so we must switch to HTTP version 1.0.
+  http.begin(espClient, serverPath);
 
-  Serial.println("subscribed");
+  int httpResponseCode = http.GET();
+
+  if (httpResponseCode > 0) {
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, http.getStream());
+
+    // Test if parsing succeeds.
+    if (error) {
+      Serial.print(F("deserializeJson() failed: "));
+      Serial.println(error.f_str());
+      return;
+    }
+
+    temperatures[0] = doc["current"]["temp"].as<float>();
+    icons[0] = translateOpenWeatherId(doc["current"]["weather"][0]["icon"].as<String>());
+    windSpeeds[0] = doc["current"]["wind_speed"].as<int>();
+    windDirections[0] = doc["current"]["wind_deg"].as<int>();
+    precipitations[0] = doc["current"]["rain"]["1h"].as<float>();
+
+    setTime(doc["current"]["dt"].as<unsigned long>());
+    times[0] = String("" + String(hour()) + ":" + String(minute()));
+  }
+  else {
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+  }
+  // Free resources
+  http.end();
+}
+
+void getWeatherForecast() {
+  lastUpdateMillis = millis();
+  String serverPath = "http://api.openweathermap.org/data/2.5/forecast?q=" + city + "&units=metric&cnt=8&appid=" + openWeatherMapApiKey;
+
+  HTTPClient http;
+
+  http.useHTTP10(true); //Unfortunately, by using the underlying Stream, we bypass the code that handles chunked transfer encoding, so we must switch to HTTP version 1.0.
+  http.begin(espClient, serverPath);
+
+  int httpResponseCode = http.GET();
+
+  if (httpResponseCode > 0) {
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+
+    DynamicJsonDocument doc(6144);//8192);
+    DeserializationError error = deserializeJson(doc, http.getStream());
+
+    // Test if parsing succeeds.
+    if (error) {
+      Serial.print(F("deserializeJson() failed: "));
+      Serial.println(error.f_str());
+      return;
+    }
+    for(int i = 0; i<8; i++){
+      Serial.println(i);
+      temperatures[i+1] = doc["list"][i]["main"]["temp"].as<float>();
+    icons[i+1] = translateOpenWeatherId(doc["list"][i]["weather"][0]["icon"].as<String>());
+    windSpeeds[i+1] = doc["list"][i]["wind"]["speed"].as<int>();
+    windDirections[i+1] = doc["list"][i]["wind"]["deg"].as<int>();
+    precipitations[i+1] = doc["list"][i]["rain"]["3h"].as<float>();
+    time_t timeslot = doc["list"][i]["dt"].as<unsigned long>();
+    times[i+1] = String(hour(timeslot)) + ":" + minute(timeslot);
+    }
+  }
+  else {
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+  }
+  // Free resources
+  http.end();
+}
+
+float readInternalTemperature() {
+  float temp = 0;
+  while (isnan(temp = dht.readTemperature())) {
+    Serial.println("Internal temp = nan");
+    delay(10);
+  }
+  return temp;
 }
 
 void updateDisplay(void (*drawCallback)(const void*)) {
@@ -198,7 +263,7 @@ void displayWeatherCallback(const void*)
   display.println(times[0]);
   //internal
   display.setTextSize(1);
-  display.setCursor(0, margin * 2 -10);
+  display.setCursor(0, margin * 2 - 10);
   display.print("in");
   printTemperature(margin, margin * 2, internalTemp, true);
   // external
@@ -300,48 +365,6 @@ char translateOpenWeatherId(String id) {
       return translatedOpenWeatherIdsNight[numberPart];
     }
   }
-}
-
-void callback(char* topicArray, byte * payloadArray, unsigned int length) {
-  String payload = toString(payloadArray,  length);
-  String topic = String(topicArray);
-
-  Serial.print(topic);
-  Serial.print("=");
-  Serial.println(payload);
-
-  int index = 0;
-  if (topic.startsWith("weather/prediction/")) {
-    //calculate the index of the icon
-    index = topic.substring(19, topic.indexOf('/', 19)).toInt() / 3;
-
-  }
-  if (index < 9) {
-
-    Serial.print(topic);
-    Serial.print("=");
-    Serial.println(payload);
-
-    if (topic.endsWith("icon")) {
-      icons[index] = translateOpenWeatherId(payload);
-    }
-    if (topic.endsWith("temperature")) {
-      temperatures[index] = payload.toFloat();
-    }
-    if (topic.endsWith("time")) {
-      times[index] = payload.substring(0, 5);
-    }
-    if (topic.endsWith("Direction")) {
-      windDirections[index] = payload.toInt();
-    }
-    if (topic.endsWith("Speed")) {
-      windSpeeds[index] = payload.toFloat();
-    }
-    if (topic.endsWith("precipitation")) {
-      precipitations[index] = payload.toFloat();
-    }
-  }
-  lastUpdateMillis = millis();
 }
 
 void printTemperature(uint16_t x, uint16_t y, float temp, bool isXL) {
