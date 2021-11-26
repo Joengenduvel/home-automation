@@ -87,7 +87,6 @@ void setup() {
   dht.begin();
 
   state = CONNECT;
-  Serial.println(ESP.getFreeHeap());
 }
 
 void loop() {
@@ -98,7 +97,7 @@ void loop() {
       break;
     case RECEIVE_DATA:
       //TODO check connection
-      if (lastUpdateMillis == 0 ||(unsigned long)(millis() - lastUpdateMillis) >= sleepTime) {
+      if (lastUpdateMillis == 0 || (unsigned long)(millis() - lastUpdateMillis) >= sleepTime) {
 
 
         getCurrentWeatherOneCall();
@@ -118,8 +117,6 @@ void loop() {
 
       break;
     case UPDATE_DISPLAY:
-      Serial.println("updating display");
-      updatedAt = times[0];
       updateDisplay(displayWeatherCallback);
       state = RECEIVE_DATA;
       break;
@@ -163,6 +160,7 @@ void getCurrentWeatherOneCall() {
     if (error) {
       Serial.print(F("deserializeJson() failed: "));
       Serial.println(error.f_str());
+      catchError(error.f_str());
       return;
     }
 
@@ -172,8 +170,9 @@ void getCurrentWeatherOneCall() {
     windDirections[0] = doc["current"]["wind_deg"].as<int>();
     precipitations[0] = doc["current"]["rain"]["1h"].as<float>();
 
-    setTime(doc["current"]["dt"].as<unsigned long>());
-    times[0] = String("" + String(hour()) + ":" + String(minute()));
+    int timezoneDifference = doc["timezone_offset"].as<unsigned int>();
+    time_t timeslot = doc["current"]["dt"].as<unsigned long>() + timezoneDifference;
+    times[0] = convertToTimestamp(timeslot);
   }
   else {
     Serial.print("Error code: ");
@@ -205,17 +204,21 @@ void getWeatherForecast() {
     if (error) {
       Serial.print(F("deserializeJson() failed: "));
       Serial.println(error.f_str());
+      catchError(error.f_str());
       return;
     }
-    for(int i = 0; i<8; i++){
+
+    int timezoneDifference = doc["city"]["timezone"].as<unsigned int>();
+
+    for (int i = 0; i < 8; i++) {
       Serial.println(i);
-      temperatures[i+1] = doc["list"][i]["main"]["temp"].as<float>();
-    icons[i+1] = translateOpenWeatherId(doc["list"][i]["weather"][0]["icon"].as<String>());
-    windSpeeds[i+1] = doc["list"][i]["wind"]["speed"].as<int>();
-    windDirections[i+1] = doc["list"][i]["wind"]["deg"].as<int>();
-    precipitations[i+1] = doc["list"][i]["rain"]["3h"].as<float>();
-    time_t timeslot = doc["list"][i]["dt"].as<unsigned long>();
-    times[i+1] = String(hour(timeslot)) + ":" + minute(timeslot);
+      temperatures[i + 1] = doc["list"][i]["main"]["temp"].as<float>();
+      icons[i + 1] = translateOpenWeatherId(doc["list"][i]["weather"][0]["icon"].as<String>());
+      windSpeeds[i + 1] = doc["list"][i]["wind"]["speed"].as<int>();
+      windDirections[i + 1] = doc["list"][i]["wind"]["deg"].as<int>();
+      precipitations[i + 1] = doc["list"][i]["rain"]["3h"].as<float>();
+      time_t timeslot = doc["list"][i]["dt"].as<unsigned long>() + timezoneDifference;
+      times[i + 1] = convertToTimestamp(timeslot);
     }
   }
   else {
@@ -224,6 +227,12 @@ void getWeatherForecast() {
   }
   // Free resources
   http.end();
+}
+
+String convertToTimestamp(time_t timeslot) {
+  char buffer[6];
+  sprintf(buffer, "%02d:%02d", hour(timeslot), minute(timeslot));
+  return String(buffer);
 }
 
 float readInternalTemperature() {
@@ -237,6 +246,7 @@ float readInternalTemperature() {
 
 void updateDisplay(void (*drawCallback)(const void*)) {
   Serial.println("updating display");
+  delay(5);
   display.init(115200);
   display.setRotation(0);
   display.setFullWindow();
@@ -389,15 +399,6 @@ void printPercipitation(uint16_t x, uint16_t y, float percipitation, bool isXL) 
   display.print(" mm");
 }
 
-String toString(byte * payloadArray, unsigned int length) {
-  char buff_p[length];
-  for (int i = 0; i < length; i++)
-  {
-    buff_p[i] = (char)payloadArray[i];
-  }
-  buff_p[length] = '\0';
-  return String(buff_p);
-}
 void catchError(String message) {
   state = ERROR;
   errorMessage = message;
