@@ -140,7 +140,7 @@ void reconnect() {
 
 void getCurrentWeatherOneCall() {
   lastUpdateMillis = millis();
-  String serverPath = "http://api.openweathermap.org/data/2.5/onecall?lat=" + lat + "&lon=" + lon + "&exclude=minutely,daily,alerts,hourly&units=metric&appid=" + openWeatherMapApiKey;
+  String serverPath = "http://api.openweathermap.org/data/3.0/onecall?lat=" + lat + "&lon=" + lon + "&exclude=minutely,daily,alerts,hourly&units=metric&appid=" + openWeatherMapApiKey;
 
   HTTPClient http;
 
